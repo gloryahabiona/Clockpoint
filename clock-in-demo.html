@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <style>
   :root{
     /* body (dark default) */
@@ -434,6 +436,16 @@
 
 <script>
 const KEY_PREFIX = 'clockin:';
+const supabaseClient = (typeof supabase !== 'undefined' && typeof SUPABASE_URL === 'string' && typeof SUPABASE_ANON_KEY === 'string')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+const hasSupabase = !!supabaseClient;
+
+async function isSupabaseAuthed(){
+  if(!hasSupabase) return false;
+  try{ const { data } = await supabaseClient.auth.getUser(); return !!(data && data.user); }
+  catch(e){ return false; }
+}
 let useStorage = (typeof window !== 'undefined' && window.storage && typeof window.storage.set === 'function');
 let memRecords = []; // fallback
 let state = { photo:null, lat:null, lng:null, acc:null, type:'IN', staffId:null, name:null, position:null, siteId:null, siteName:null, zone:'NA', distance:null };
@@ -448,6 +460,20 @@ const DEFAULT_SITES=[
 let SITES=[];
 function getSite(id){ return SITES.find(s=>s.id===id); }
 async function loadSites(){
+  if(hasSupabase){
+    try{
+      const { data, error } = await supabaseClient
+        .from('sites')
+        .select('id,name,center_lat,center_lng,radius_m')
+        .eq('active', true)
+        .order('name', { ascending: true });
+      if(!error && data){
+        SITES = data.map(s=>({ id:s.id, name:s.name, lat:+s.center_lat, lng:+s.center_lng, radius:+s.radius_m }));
+        return;
+      }
+      console.warn('Supabase loadSites failed', error);
+    }catch(e){ console.warn('Supabase loadSites error', e); }
+  }
   if(useStorage){
     try{ const r=await window.storage.get(SITES_KEY,true); if(r&&r.value){ SITES=JSON.parse(r.value); return; } }catch(e){}
     SITES=DEFAULT_SITES.slice();
@@ -649,6 +675,22 @@ function resetForm(){
 
 /* ---------- Storage ---------- */
 async function saveRecord(rec){
+  if(hasSupabase){
+    try{
+      const { data, error } = await supabaseClient.rpc('submit_clock_event', {
+        p_staff_id: rec.staffId,
+        p_event_type: rec.type,
+        p_lat: rec.lat,
+        p_lng: rec.lng,
+        p_gps_accuracy_m: rec.acc == null ? null : rec.acc,
+        p_device_time: new Date(rec.ts).toISOString(),
+        p_photo_url: rec.photo,
+        p_device_info: { ua: navigator.userAgent }
+      });
+      if(error) throw error;
+      return data;
+    }catch(e){ console.warn('Supabase saveRecord failed', e); }
+  }
   if(useStorage){
     try{ await window.storage.set(KEY_PREFIX+rec.id, JSON.stringify(rec), true); return; }
     catch(e){ useStorage=false; }
@@ -691,9 +733,43 @@ async function renderLog(){
   if(!useStorage){ warn.style.display='block'; warn.textContent='⚠ Shared demo storage is unavailable, so records are kept only for this session. Deployed, this uses a real database.'; }
   else warn.style.display='none';
 
+  let list = null;
   const dateStr=document.getElementById('logDate').value;
-  const all=await loadRecords();
-  const list=dateStr?all.filter(r=>sameDay(r.ts,dateStr)):all;
+
+  if(hasSupabase){
+    try{
+      const authed = await isSupabaseAuthed();
+      if(authed){
+        const { data, error } = await supabaseClient
+          .from('clock_events')
+          .select('id,staff_id,staff_name,position,site_name,event_type,server_time,lat,lng,gps_accuracy_m,distance_m,within_geofence,photo_url')
+          .order('server_time', { ascending: false });
+        if(!error && data){
+          const rows = data.map(r=>({
+            id: r.id,
+            ts: r.server_time ? new Date(r.server_time).getTime() : Date.now(),
+            staffId: r.staff_id,
+            name: r.staff_name,
+            position: r.position,
+            site: r.site_name,
+            type: r.event_type,
+            lat: r.lat,
+            lng: r.lng,
+            acc: r.gps_accuracy_m,
+            zone: r.within_geofence===null ? 'NA' : (r.within_geofence ? 'IN' : 'OUT'),
+            distance: r.distance_m,
+            photo: r.photo_url
+          }));
+          list = dateStr ? rows.filter(r=>sameDay(r.ts,dateStr)) : rows;
+        } else console.warn('Supabase renderLog failed', error);
+      }
+    }catch(e){ console.warn('Supabase renderLog error', e); }
+  }
+
+  if(!list){
+    const all = await loadRecords();
+    list = dateStr ? all.filter(r=>sameDay(r.ts,dateStr)) : all;
+  }
 
   document.getElementById('statTotal').textContent=list.length;
   document.getElementById('statIn').textContent=list.filter(r=>r.type==='IN').length;
@@ -869,9 +945,40 @@ async function loadList(key, fallback, target){
   }
   return fallback.slice();
 }
-async function loadPositions(){ POSITIONS=await loadList(POS_KEY, DEFAULT_POSITIONS, POSITIONS); }
+async function loadPositions(){
+  if(hasSupabase){
+    try{
+      const authed = await isSupabaseAuthed();
+      if(authed){
+        const { data, error } = await supabaseClient
+          .from('positions')
+          .select('name')
+          .order('name', { ascending: true });
+        if(!error && data){ POSITIONS = data.map(p=>p.name); return; }
+        console.warn('Supabase loadPositions failed', error);
+      }
+    }catch(e){ console.warn('Supabase loadPositions error', e); }
+  }
+  POSITIONS = await loadList(POS_KEY, DEFAULT_POSITIONS, POSITIONS);
+}
 async function savePositions(){ if(useStorage){ try{ await window.storage.set(POS_KEY, JSON.stringify(POSITIONS), true); }catch(e){ useStorage=false; } } }
-async function loadStaff(){ STAFF=await loadList(STAFF_KEY, DEFAULT_STAFF, STAFF); }
+async function loadStaff(){
+  if(hasSupabase){
+    try{
+      const { data, error } = await supabaseClient
+        .from('staff')
+        .select('id,full_name,position,assigned_site_id')
+        .eq('active', true)
+        .order('full_name', { ascending: true });
+      if(!error && data){
+        STAFF = data.map(s=>({ id:s.id, name:s.full_name, position:s.position||'', siteId:s.assigned_site_id }));
+        return;
+      }
+      console.warn('Supabase loadStaff failed', error);
+    }catch(e){ console.warn('Supabase loadStaff error', e); }
+  }
+  STAFF=await loadList(STAFF_KEY, DEFAULT_STAFF, STAFF);
+}
 async function saveStaff(){ if(useStorage){ try{ await window.storage.set(STAFF_KEY, JSON.stringify(STAFF), true); }catch(e){ useStorage=false; } } }
 
 function renderPositions(){
