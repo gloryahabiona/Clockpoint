@@ -1,67 +1,71 @@
 # ClockPoint — Super admin login & onboarding (setup)
 
-This adds: a **login page**, a **super-admin console** that creates organizations
-and their admin logins, and a landing page for org admins. Frontend stays on
-GitHub Pages; the privileged "create a user" step runs in one Supabase Edge
+The super admin signs in, **creates organizations**, then **adds admin logins to
+each organization** (up to 5 per org). Frontend stays on GitHub Pages; the one
+privileged step (creating a login for someone else) runs in a Supabase Edge
 Function.
 
-Do these four steps once.
+> **Key point that fixes the "free slots used up" problem:** the super admin does
+> **NOT** own an organization and never uses a slot. There are exactly **2 free
+> organization slots** on the whole platform; the first two orgs you create can be
+> Free, and every org after that must be Paid. If you hit "no free slots" with no
+> real orgs yet, you have leftover test orgs — clear them in step 0.
 
 ---
 
-## 1. Run the auth schema
-Supabase → **SQL Editor** → New query → paste all of
-[`auth-schema.sql`](auth-schema.sql) → **Run**.
-(Adds `platform_admins`, `whoami()`, `list_organizations()`, `set_org_plan()`.)
+## 0. Reset leftover test data (do this once)
+Earlier setup examples created a throwaway `ABCompany` organization, which ate
+your free slots. Clear all test orgs so you start clean (this also removes any
+test staff/sites/admins linked to them — safe while you have no real data; it
+does **not** touch your super-admin account):
 
-> If you haven't run [`schema.sql`](schema.sql) yet, run that first.
+```sql
+delete from organizations;   -- frees both slots; cascades to test app_users/staff/sites
+```
 
-## 2. Make yourself the super admin
-1. **Authentication → Users → Add user** → enter your email + a password →
-   tick "Auto confirm" → create. Copy your new **User UID**.
-2. **SQL Editor**, run (paste your UID):
+## 1. Run the schema
+In **SQL Editor**, run [`schema.sql`](schema.sql) (if not already), then
+[`auth-schema.sql`](auth-schema.sql). Both are safe to re-run — do this again now
+since the auth functions changed (org creation, slot status, 5-admin limit).
+
+## 2. Make yourself the super admin (no organization needed)
+1. **Authentication → Users → Add user** → your email + a password → tick
+   "Auto confirm" → create. Copy your **User UID**.
+2. **SQL Editor**:
    ```sql
-   insert into platform_admins (user_id) values ('<YOUR_USER_UID>');
+   insert into platform_admins (user_id) values ('<YOUR_USER_UID>')
+   on conflict do nothing;
    ```
+   That's all the super admin needs — no `organizations` row, no `app_users` row.
 
 ## 3. Deploy the create-org-admin function
-1. Supabase → **Edge Functions** → **Create a function** (or "Deploy a new function"
-   → via Editor). Name it exactly **`create-org-admin`**.
-2. Paste the contents of
-   [`functions/create-org-admin/index.ts`](functions/create-org-admin/index.ts).
-3. **Important:** turn **OFF “Verify JWT”** for this function (a toggle in the
-   function's settings). The function verifies the caller itself, and this lets
-   the browser's CORS preflight through.
-4. Deploy. No secrets to set — `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
-   are provided to the function automatically.
+1. **Edge Functions → Create a function**, name it exactly **`create-org-admin`**.
+2. Paste [`functions/create-org-admin/index.ts`](functions/create-org-admin/index.ts).
+3. Turn **OFF “Verify JWT”** for the function (it verifies the caller itself, and
+   this lets the browser's CORS preflight through).
+4. Deploy. No secrets to set.
 
 ## 4. Use it
-Open your live login page:
-
-**https://gloryahabiona.github.io/Clockpoint/login.html**
-
-- Sign in with the super-admin email/password from step 2.
-- You'll land on the **console**. Fill in an organization name, the admin's
-  email, and an initial password → **Create organization & admin**.
-- That admin can now sign in at the same login page and lands on their (stub)
-  admin page. Building out their staff/sites/log dashboard is the next step.
+Open **https://gloryahabiona.github.io/Clockpoint/login.html** and sign in as the
+super admin. In the console:
+- **Step 1 — Create an organization:** type a name, pick Free/Paid (Free auto-
+  disables once both slots are used), click **Create organization**.
+- **Step 2 — Add admins:** on the org's card click **+ Add admin**, enter the
+  admin's email + an initial password, pick a role, **Create admin login**. Repeat
+  for up to 5 admins per org.
+- Each admin can now sign in at the same login page and lands on their (stub)
+  admin page. Their full staff/sites/log dashboard is the next build.
 
 ---
 
-### How the security works
-- The **anon key** in `config.js` is public-safe — Row-Level Security limits it to
-  reading active staff/sites and calling the clock-in function.
-- Creating a login for someone else needs the **service-role key**, which lives
-  ONLY inside the Edge Function on Supabase's servers — never in the browser.
-- The function refuses to do anything unless the caller is in `platform_admins`,
-  so only you can onboard organizations.
-- Each org admin is scoped to their own `organization_id`; RLS means they can
-  never see another company's data.
+### The free / paid model in one line
+2 free org slots total → first two orgs Free, the rest Paid. Moving an org to Paid
+frees a slot. The console always shows "X / 2 free slots used" so it's never a
+guess. Enforced in the database, so it holds even outside the UI.
 
 ### Troubleshooting
-- **"Not authorized (super admin only)"** → step 2 wasn't done for the logged-in
-  user, or you're signed in as a different account.
-- **CORS / preflight error in the console** → "Verify JWT" is still ON for the
-  function (step 3.3).
-- **"Both free slots are in use"** → the 2-free-org rule fired; create the org as
-  `paid`, or move an existing free org to paid first.
+- **"No free slots left"** with few orgs → you still have leftover free orgs; re-run
+  step 0, or create the org as **Paid**.
+- **"Not authorized (super admin only)"** → step 2 wasn't done for the logged-in user.
+- **CORS / preflight error** → "Verify JWT" is still ON for the function (step 3.3).
+- **"maximum of 5 admins"** → that org is full; remove one or use another org.
