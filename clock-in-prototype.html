@@ -128,6 +128,10 @@
   .rec .meta .t{color:var(--lilac);font-weight:500;}
   .empty{text-align:center;padding:46px 20px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);font-family:var(--ui);font-size:13px;font-weight:500;color:var(--text-soft);}
   .note{font-family:var(--ui);font-size:11.5px;font-weight:400;color:var(--text-soft);line-height:1.65;border-left:2px solid var(--purple);padding:6px 0 6px 13px;margin-top:18px;}
+  /* subtle maker's credit — present but quiet */
+  .brandcredit{text-align:center;font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-soft);opacity:.3;padding:22px 0 6px;transition:opacity .2s;}
+  .brandcredit:hover{opacity:.7;}
+  .modal-credit{text-align:center;font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-soft);opacity:.4;margin-top:12px;}
   .storage-warn{background:rgba(154,109,247,0.12);border:1px solid var(--purple-deep);border-radius:var(--r);padding:11px 13px;font-family:var(--ui);font-size:12px;color:var(--purple);margin-bottom:14px;display:none;line-height:1.5;}
   /* Geofence */
   .sim-row{display:flex;gap:8px;margin-top:9px;}
@@ -387,6 +391,7 @@
     <div id="orgsList"></div>
     <div class="note">Two free organization slots are included. Once both are taken, new organizations must be on a paid plan — but you can switch any organization between free and paid at any time, and moving one to paid frees a slot. Paid plans can enable API access. In production, billing, API keys, and a "free slots full" notification to you are handled on the server.</div>
   </section>
+  <div class="brandcredit">A product of the ABCompany</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -401,6 +406,7 @@
       <button id="pinOk" class="primary">Unlock</button>
     </div>
     <div class="modal-hint">Demo PINs — Admin 1234 · Super admin 0000</div>
+    <div class="modal-credit">A product of the ABCompany</div>
   </div>
 </div>
 
