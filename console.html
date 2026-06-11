@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClockPoint — Super Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cp.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <div>
+        <h1>ClockPoint</h1>
+        <span class="sub">Super Admin Console</span>
+      </div>
+      <div class="head-actions">
+        <button id="logout" class="btn ghost" style="width:auto;padding:8px 12px;">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel" id="app" style="display:none;">
+    <div id="msg" class="msg"></div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div class="lab-h" style="margin-bottom:12px;">Onboard an organization + its admin</div>
+      <div class="field">
+        <label class="lab" for="orgName">Organization name</label>
+        <input id="orgName" placeholder="e.g. Acme Security Ltd" autocomplete="off">
+      </div>
+      <div class="row2" style="margin-bottom:15px;">
+        <div>
+          <label class="lab" for="plan">Plan</label>
+          <select id="plan"><option value="free">Free</option><option value="paid">Paid</option></select>
+        </div>
+        <div>
+          <label class="lab" for="role">Admin role</label>
+          <select id="role"><option value="owner">Owner</option><option value="admin">Admin</option><option value="viewer">Viewer</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="lab" for="email">Admin email</label>
+        <input id="email" type="email" placeholder="admin@acme.com" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="lab" for="password">Initial password (min 8 chars)</label>
+        <input id="password" type="text" placeholder="they can change it later" autocomplete="off">
+      </div>
+      <button id="create" class="btn">Create organization &amp; admin</button>
+    </div>
+
+    <div class="lab-h" style="margin:4px 0 10px;">Organizations</div>
+    <div id="orgList"><div class="empty">Loading…</div></div>
+    <div class="muted">Each organization gets one login here; that admin then manages their own staff, sites and attendance log — and can never see another organization's data. The two-free-slot rule is enforced by the database.</div>
+    <div class="brandcredit">A product of the ABCompany</div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+function show(kind,text){ const m=$('msg'); m.className='msg show '+kind; m.textContent=text; m.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+function clearMsg(){ $('msg').className='msg'; }
+let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),2600); }
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// --- guard: must be a signed-in super admin ---
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session){ location.replace('login.html'); return; }
+  const { data, error } = await sb.rpc('whoami');
+  if (error || !data?.is_super){ location.replace('login.html'); return; }
+  $('app').style.display='block';
+  loadOrgs();
+})();
+
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); location.replace('login.html'); });
+
+async function loadOrgs(){
+  const { data, error } = await sb.rpc('list_organizations');
+  const box=$('orgList');
+  if (error){ box.innerHTML='<div class="empty">Could not load: '+esc(error.message)+'</div>'; return; }
+  const orgs = data || [];
+  if (!orgs.length){ box.innerHTML='<div class="empty">No organizations yet — create the first one above.</div>'; return; }
+  box.innerHTML = orgs.map(o => {
+    const admins = (o.admins||[]).map(a=>`${esc(a.email)} <span style="opacity:.6">(${esc(a.role)})</span>`).join('<br>') || '<span style="opacity:.6">no admin linked</span>';
+    return `<div class="org-card">
+      <div class="org-top">
+        <div class="org-nm">${esc(o.name)} <span class="plan-badge ${o.plan}">${o.plan}</span></div>
+        <button class="btn ghost" style="width:auto;padding:7px 11px;" data-plan="${o.plan==='free'?'paid':'free'}" data-id="${o.id}">→ ${o.plan==='free'?'Paid':'Free'}</button>
+      </div>
+      <div class="org-meta">${admins}</div>
+    </div>`;
+  }).join('');
+}
+
+$('orgList').addEventListener('click', async e => {
+  const b=e.target.closest('button[data-id]'); if(!b) return;
+  b.disabled=true;
+  const { error } = await sb.rpc('set_org_plan', { p_org_id:b.dataset.id, p_plan:b.dataset.plan });
+  if (error){ toast('⚠ '+error.message); b.disabled=false; return; }
+  toast('Plan updated'); loadOrgs();
+});
+
+$('create').addEventListener('click', async () => {
+  clearMsg();
+  const orgName=$('orgName').value.trim(), email=$('email').value.trim(),
+        password=$('password').value, plan=$('plan').value, role=$('role').value;
+  if(!orgName||!email||!password){ show('err','Fill in organization, email and password.'); return; }
+  if(password.length<8){ show('err','Password must be at least 8 characters.'); return; }
+  $('create').disabled=true; $('create').textContent='Creating…';
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const res = await fetch(`${CP_CONFIG.SUPABASE_URL}/functions/v1/create-org-admin`, {
+      method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`, 'apikey':CP_CONFIG.SUPABASE_ANON_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ orgName, email, password, plan, role })
+    });
+    const out = await res.json();
+    if(!res.ok || out.error){ show('err', out.error || ('Failed ('+res.status+')')); return; }
+    show('ok', `Created “${out.organization.name}” with admin ${out.admin.email}. They can sign in now.`);
+    ['orgName','email','password'].forEach(i=>$(i).value='');
+    loadOrgs();
+  } catch(err){ show('err','Network error: '+err.message); }
+  finally { $('create').disabled=false; $('create').textContent='Create organization & admin'; }
+});
+</script>
+</body>
+</html>

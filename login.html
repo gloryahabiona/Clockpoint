@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClockPoint — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cp.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <div>
+        <h1>ClockPoint</h1>
+        <span class="sub">Admin Sign-in</span>
+      </div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="card">
+      <div id="msg" class="msg"></div>
+      <div class="field">
+        <label class="lab" for="email">Email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="you@company.com">
+      </div>
+      <div class="field">
+        <label class="lab" for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button id="signin" class="btn">Sign in</button>
+    </div>
+    <div class="muted">Super admins manage organizations and their admins. Organization admins manage their own staff, sites and attendance log. Staff don't sign in — they clock in from the staff screen.</div>
+    <div class="brandcredit">A product of the ABCompany</div>
+  </section>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+function show(kind, text){ const m=$('msg'); m.className='msg show '+kind; m.textContent=text; }
+
+// If already signed in, route straight through.
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) route();
+})();
+
+async function route(){
+  const { data, error } = await sb.rpc('whoami');
+  if (error){ show('err','Signed in, but could not load your profile: '+error.message); return; }
+  if (data.is_super){ location.href='console.html'; return; }
+  if (data.app_user){ location.href='admin.html'; return; }
+  show('err','This account isn’t linked to an organization yet. Ask your super admin to set it up.');
+}
+
+$('signin').addEventListener('click', async () => {
+  const email=$('email').value.trim(), password=$('password').value;
+  if(!email||!password){ show('err','Enter your email and password.'); return; }
+  $('signin').disabled=true; $('signin').textContent='Signing in…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  $('signin').disabled=false; $('signin').textContent='Sign in';
+  if (error){ show('err', error.message); return; }
+  route();
+});
+$('password').addEventListener('keydown', e => { if(e.key==='Enter') $('signin').click(); });
+</script>
+</body>
+</html>

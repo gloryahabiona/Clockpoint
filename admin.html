@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClockPoint — Organization Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cp.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <div>
+        <h1>ClockPoint</h1>
+        <span class="sub" id="sub">Organization Admin</span>
+      </div>
+      <div class="head-actions">
+        <button id="logout" class="btn ghost" style="width:auto;padding:8px 12px;">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <section class="panel" id="app" style="display:none;">
+    <div class="card">
+      <div class="lab-h" style="margin-bottom:8px;">Welcome<span id="who"></span></div>
+      <p style="color:var(--text-soft);font-size:14px;line-height:1.6;">
+        You’re signed in as an organization admin. Managing your staff, sites and
+        attendance log from here is the next step we’re building. For now your
+        account, organization and secure access are all set up.
+      </p>
+    </div>
+    <div class="brandcredit">A product of the ABCompany</div>
+  </section>
+</div>
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+(async () => {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session){ location.replace('login.html'); return; }
+  const { data, error } = await sb.rpc('whoami');
+  if (error || !data?.app_user){
+    if (data?.is_super){ location.replace('console.html'); return; }
+    location.replace('login.html'); return;
+  }
+  $('who').textContent = data.app_user.email ? (', '+data.app_user.email) : '';
+  $('app').style.display='block';
+})();
+$('logout').addEventListener('click', async () => { await sb.auth.signOut(); location.replace('login.html'); });
+</script>
+</body>
+</html>
