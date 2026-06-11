@@ -34,6 +34,15 @@
   <section class="panel" id="app" style="display:none;">
     <div id="msg" class="msg"></div>
 
+    <div class="card" style="margin-bottom:18px;">
+      <div class="lab2" style="margin-bottom:10px;">Access URLs</div>
+      <div style="font-size:13px;line-height:1.7;color:var(--text-soft);">
+        <div><b style="color:var(--lilac)">Super admin (you):</b><br><span id="superUrl" style="word-break:break-all;"></span></div>
+        <div style="margin-top:8px;"><b style="color:var(--lilac)">Organization admins:</b><br><span id="adminUrl" style="word-break:break-all;"></span><br><span style="opacity:.7;font-size:12px;">Same sign-in page — each admin signs in with their own email and lands on their own organization.</span></div>
+        <div style="margin-top:8px;"><b style="color:var(--lilac)">Staff:</b> a unique no-login link per organization — shown on each org card below.</div>
+      </div>
+    </div>
+
     <!-- Step 1: create an organization -->
     <div class="card" style="margin-bottom:18px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap;">
@@ -80,6 +89,9 @@ function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
   const { data, error } = await sb.rpc('whoami');
   if (error || !data?.is_super){ location.replace('login.html'); return; }
   $('app').style.display='block';
+  const loginUrl = new URL('login.html', location.href).href;
+  $('superUrl').textContent = loginUrl;
+  $('adminUrl').textContent = loginUrl;
   refresh();
 })();
 
@@ -117,6 +129,7 @@ async function loadOrgs(){
         <button class="btn ghost mini" data-plan="${o.plan==='free'?'paid':'free'}" data-id="${o.id}">→ ${o.plan==='free'?'Paid':'Free'}</button>
       </div>
       <div class="admins-line"><b style="color:var(--lilac)">Admins ${o.admin_count||0}/5</b><br>${admins}</div>
+      <div class="admins-line" style="margin-top:8px;"><b style="color:var(--lilac)">Staff link</b><br><span style="word-break:break-all;">${esc(new URL('clock.html?org='+(o.slug||o.id), location.href).href)}</span> <button class="btn ghost mini" style="width:auto;padding:3px 9px;margin-left:2px;" data-copy="${esc(new URL('clock.html?org='+(o.slug||o.id), location.href).href)}">Copy</button></div>
       <div style="margin-top:10px;">
         <button class="btn ghost mini" data-toggle="${o.id}" ${full?'disabled':''}>${full?'Admin limit reached':'+ Add admin'}</button>
       </div>
@@ -147,6 +160,8 @@ $('createOrg').addEventListener('click', async () => {
 
 $('orgList').addEventListener('click', async e => {
   const t=e.target.closest('button'); if(!t) return;
+
+  if (t.dataset.copy){ try{ await navigator.clipboard.writeText(t.dataset.copy); }catch(_){ } toast('✓ Staff link copied'); return; }
 
   if (t.dataset.toggle){ $('aa-'+t.dataset.toggle).classList.toggle('show'); return; }
 

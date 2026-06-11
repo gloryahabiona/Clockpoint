@@ -112,6 +112,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),3000); }
+function shade(hex,p){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=x=>Math.round(p<0?x*(1+p):x+(255-x)*p); const h=x=>f(x).toString(16).padStart(2,'0'); return '#'+h(r)+h(g)+h(b); }
+function applyBrand(hex){ if(!/^#[0-9A-Fa-f]{6}$/.test(hex||'')) return; const s=document.documentElement.style; s.setProperty('--purple',hex); s.setProperty('--purple-deep',shade(hex,-0.25)); s.setProperty('--purple-hover',shade(hex,0.18)); s.setProperty('--header-accent',shade(hex,0.35)); s.setProperty('--lilac',shade(hex,0.4)); }
 
 const ORG = new URLSearchParams(location.search).get('org');
 let SITES=[], STAFF=[];
@@ -131,6 +133,7 @@ setInterval(tick,1000); tick();
   if(error || !data || data.error){ $('gate').textContent='This clock-in link is invalid or the organization is unavailable.'; return; }
   SITES=data.sites||[]; STAFF=data.staff||[];
   $('orgSub').textContent=data.org.name+' · Clock-In';
+  applyBrand(data.org.brand_color);
   const sel=$('fStaff');
   sel.innerHTML='<option value="">Select your name…</option>'+STAFF.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('gate').style.display='none'; $('form').style.display='block';

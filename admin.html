@@ -73,6 +73,7 @@
       <button class="tab active" data-view="log">Log</button>
       <button class="tab" data-view="sites">Sites</button>
       <button class="tab" data-view="staff">Staff</button>
+      <button class="tab" data-view="settings">Settings</button>
     </div>
   </header>
 
@@ -142,6 +143,28 @@
     <div id="staffList"></div>
   </section>
 
+  <section class="panel" id="panel-settings">
+    <div class="card" style="margin-bottom:18px;">
+      <div class="lab2" style="margin-bottom:8px;">Brand color</div>
+      <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:12px;">Pick your organization's accent color — it themes your admin pages and your staff clock-in screen. <b>It can only be set once.</b></div>
+      <div id="themeOpen">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input type="color" id="brandColor" value="#9A6DF7" style="width:54px;height:44px;padding:4px;">
+          <input type="text" id="brandHex" value="#9A6DF7" style="font-family:var(--mono);flex:1;min-width:120px;">
+          <button class="btn mini" id="saveTheme" style="width:auto;padding:11px 16px;white-space:nowrap;">Set color</button>
+        </div>
+      </div>
+      <div id="themeLocked" style="display:none;font-size:13px;color:var(--text-soft);">Brand color is set to <b id="lockedColor"></b> and locked.</div>
+    </div>
+    <div class="card">
+      <div class="lab2" style="margin-bottom:8px;">Weekly attendance email</div>
+      <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:12px;">Automatically email a CSV of the past week's attendance, once a week.</div>
+      <div class="field"><label class="lab" for="reportEmail">Recipient email</label><input type="email" id="reportEmail" placeholder="reports@yourcompany.com"></div>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;margin-bottom:14px;cursor:pointer;"><input type="checkbox" id="reportEnabled" style="width:auto;"> Enable weekly email</label>
+      <button class="btn" id="saveReport">Save report settings</button>
+    </div>
+  </section>
+
   <div class="brandcredit" style="padding:8px 0 24px;">A product of the ABCompany</div>
 </div>
 <div class="toast" id="toast"></div>
@@ -152,6 +175,13 @@ const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),2600); }
+function shade(hex,p){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=x=>Math.round(p<0?x*(1+p):x+(255-x)*p); const h=x=>f(x).toString(16).padStart(2,'0'); return '#'+h(r)+h(g)+h(b); }
+function applyBrand(hex){ if(!/^#[0-9A-Fa-f]{6}$/.test(hex||'')) return; const s=document.documentElement.style; s.setProperty('--purple',hex); s.setProperty('--purple-deep',shade(hex,-0.25)); s.setProperty('--purple-hover',shade(hex,0.18)); s.setProperty('--header-accent',shade(hex,0.35)); s.setProperty('--lilac',shade(hex,0.4)); }
+function initSettings(org){
+  if(org.theme_locked && org.brand_color){ $('themeOpen').style.display='none'; $('themeLocked').style.display='block'; $('lockedColor').textContent=org.brand_color; }
+  else { const c=org.brand_color||'#9A6DF7'; $('brandColor').value=c; $('brandHex').value=c; }
+  $('reportEmail').value=org.report_email||''; $('reportEnabled').checked=!!org.report_enabled;
+}
 
 let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
 
@@ -165,7 +195,10 @@ let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
   if (!data.app_user){ location.replace('login.html'); return; }
   ORG = data.app_user.organization_id;
   $('orgSub').textContent = data.app_user.email || 'Organization Admin';
-  $('staffLink').value = new URL('clock.html?org='+ORG, location.href).href;
+  const { data: org } = await sb.rpc('my_org');
+  const slug = (org && org.slug) || ORG;
+  $('staffLink').value = new URL('clock.html?org='+slug, location.href).href;
+  if (org){ applyBrand(org.brand_color); initSettings(org); }
   setToday();
   await Promise.all([loadSites(), loadPositions(), loadStaff()]);
   renderSites(); renderPositions(); renderStaff(); populateStaffSelects();
@@ -175,6 +208,24 @@ $('logout').addEventListener('click', async () => { await sb.auth.signOut(); loc
 $('copyLink').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText($('staffLink').value); toast('✓ Link copied'); }
   catch(e){ $('staffLink').select(); document.execCommand('copy'); toast('✓ Link copied'); }
+});
+
+// ---- Settings: brand color (set once) + weekly report ----
+$('brandColor').addEventListener('input', e => $('brandHex').value = e.target.value.toUpperCase());
+$('brandHex').addEventListener('input', e => { if(/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) $('brandColor').value = e.target.value; });
+$('saveTheme').addEventListener('click', async () => {
+  const c=$('brandHex').value.trim();
+  if(!/^#[0-9A-Fa-f]{6}$/.test(c)){ toast('⚠ Enter a #RRGGBB color'); return; }
+  if(!confirm('Set the brand color to '+c+'? This can only be done once.')) return;
+  const { error } = await sb.rpc('set_org_theme', { p_color:c });
+  if(error){ toast('⚠ '+error.message); return; }
+  applyBrand(c); $('themeOpen').style.display='none'; $('themeLocked').style.display='block'; $('lockedColor').textContent=c.toUpperCase(); toast('✓ Brand color set');
+});
+$('saveReport').addEventListener('click', async () => {
+  const email=$('reportEmail').value.trim(), enabled=$('reportEnabled').checked;
+  const { error } = await sb.rpc('set_report_settings', { p_email:email, p_enabled:enabled });
+  if(error){ toast('⚠ '+error.message); return; }
+  toast('✓ Report settings saved');
 });
 
 // ---- tabs ----
