@@ -113,6 +113,14 @@
   </section>
 
   <section class="panel" id="panel-staff">
+    <div class="card" style="margin-bottom:18px;">
+      <div class="lab2" style="margin-bottom:8px;">Staff clock-in link</div>
+      <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:10px;">Share this with your staff (or print it as a QR code at each site). They open it on their phone to clock in — no login needed.</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="staffLink" readonly style="font-family:var(--mono);font-size:12px;" value="…">
+        <button class="btn mini" id="copyLink" style="width:auto;padding:11px 14px;white-space:nowrap;">Copy</button>
+      </div>
+    </div>
     <div class="lab2" style="margin:2px 0 10px;">Positions</div>
     <div class="row2" style="margin-bottom:12px;align-items:stretch;">
       <div><input id="posName" placeholder="Add a position" autocomplete="off"></div>
@@ -157,12 +165,17 @@ let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
   if (!data.app_user){ location.replace('login.html'); return; }
   ORG = data.app_user.organization_id;
   $('orgSub').textContent = data.app_user.email || 'Organization Admin';
+  $('staffLink').value = new URL('clock.html?org='+ORG, location.href).href;
   setToday();
   await Promise.all([loadSites(), loadPositions(), loadStaff()]);
   renderSites(); renderPositions(); renderStaff(); populateStaffSelects();
   renderLog();
 })();
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); location.replace('login.html'); });
+$('copyLink').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('staffLink').value); toast('✓ Link copied'); }
+  catch(e){ $('staffLink').select(); document.execCommand('copy'); toast('✓ Link copied'); }
+});
 
 // ---- tabs ----
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {

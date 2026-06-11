@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ClockPoint — Clock In</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="cp.css">
+<script src="config.js"></script>
+<style>
+  .clockface{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:17px 19px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;box-shadow:0 2px 18px rgba(0,0,0,0.12);}
+  .clockface .time{font-family:var(--mono);font-size:34px;font-weight:500;line-height:1;letter-spacing:-1px;}
+  .clockface .ss{color:var(--peach);}
+  .clockface .date{font-family:var(--mono);font-size:11px;color:var(--text-soft);text-align:right;}
+  .capture-btn{width:100%;padding:13px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface-2);font-family:var(--ui);font-size:13px;font-weight:600;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;gap:8px;}
+  .capture-btn:hover{border-color:var(--lilac);}
+  .capture-btn.done{border-style:solid;border-color:var(--in-border);background:var(--in-bg);color:var(--in-text);}
+  .readout{font-family:var(--mono);font-size:11px;color:var(--text-soft);margin-top:7px;line-height:1.55;word-break:break-all;}
+  .readout b{color:var(--lilac);font-weight:500;}
+  .photo-prev{margin-top:9px;width:84px;height:84px;object-fit:cover;border:1px solid var(--line);border-radius:var(--r);display:none;}
+  .manual-coords{display:none;gap:8px;margin-top:9px;}
+  .manual-coords input{flex:1;}
+  .sim-row{display:flex;gap:8px;margin-top:9px;}
+  .sim-btn{flex:1;padding:9px;border:1px dashed var(--line);border-radius:var(--r);background:none;color:var(--text-soft);font-size:11.5px;font-weight:600;cursor:pointer;}
+  .sim-btn:hover{color:var(--text);border-color:var(--lilac);}
+  .zone-box{margin-top:11px;padding:12px 13px;border-radius:var(--r);font-size:13px;font-weight:600;line-height:1.45;display:none;border:1px solid;}
+  .zone-box.in{display:block;border-color:var(--in-border);background:var(--in-bg);color:var(--in-text);}
+  .zone-box.out{display:block;border-color:var(--out-border);background:var(--out-bg);color:var(--out-text);}
+  .zone-box.na{display:block;border-color:var(--line);background:var(--surface-2);color:var(--text-soft);}
+  .assign-card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:6px 14px;margin-bottom:15px;display:none;}
+  .assign-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+  .assign-row:last-child{border-bottom:none;}
+  .assign-l{font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);}
+  .assign-v{font-size:14px;font-weight:600;text-align:right;}
+  .toggle{display:flex;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);overflow:hidden;}
+  .toggle button{flex:1;padding:13px;background:none;border:none;font-family:var(--ui);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-soft);}
+  .toggle button.sel-in{background:var(--army);color:#0c0c06;}
+  .toggle button.sel-out{background:var(--purple-deep);color:#fff;}
+  .submit-lg{width:100%;padding:17px;margin-top:8px;border:none;border-radius:var(--r);background:var(--purple);color:var(--on-purple);font-family:var(--ui);font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 6px 18px rgba(154,109,247,0.25);}
+  .submit-lg:disabled{opacity:.5;cursor:not-allowed;}
+  .gate{padding:40px 24px;text-align:center;color:var(--text-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <div><h1>ClockPoint</h1><span class="sub" id="orgSub">Staff Clock-In</span></div>
+    </div>
+  </header>
+
+  <div id="gate" class="gate">Loading…</div>
+
+  <section class="panel" id="form" style="display:none;">
+    <div class="clockface">
+      <div class="time" id="liveTime">--:--<span class="ss">:--</span></div>
+      <div class="date" id="liveDate">—</div>
+    </div>
+
+    <div class="field">
+      <label class="lab">Staff</label>
+      <select id="fStaff"><option value="">Select your name…</option></select>
+    </div>
+
+    <div class="assign-card" id="assignCard">
+      <div class="assign-row"><span class="assign-l">Position</span><span class="assign-v" id="acPos">—</span></div>
+      <div class="assign-row"><span class="assign-l">Assigned site</span><span class="assign-v" id="acSite">—</span></div>
+    </div>
+
+    <div class="field">
+      <label class="lab">GPS location</label>
+      <button class="capture-btn" id="gpsBtn">⊕ Capture GPS</button>
+      <div class="readout" id="gpsOut"></div>
+      <div class="manual-coords" id="manualCoords">
+        <input type="number" step="any" id="fLat" placeholder="Latitude">
+        <input type="number" step="any" id="fLng" placeholder="Longitude">
+      </div>
+      <div class="sim-row">
+        <button type="button" class="sim-btn" id="simOn">▷ Simulate: on-site</button>
+        <button type="button" class="sim-btn" id="simFar">▷ Simulate: 500m away</button>
+      </div>
+      <div class="zone-box" id="zoneStatus"></div>
+    </div>
+
+    <div class="field">
+      <label class="lab">Photo (selfie)</label>
+      <button class="capture-btn" id="photoBtn">⊙ Take / Choose photo</button>
+      <input type="file" id="fPhoto" accept="image/*" capture="user" style="display:none;">
+      <img class="photo-prev" id="photoPrev" alt="preview">
+    </div>
+
+    <div class="field">
+      <label class="lab">Action</label>
+      <div class="toggle">
+        <button id="btnIn" class="sel-in">● In</button>
+        <button id="btnOut">○ Out</button>
+      </div>
+    </div>
+
+    <button class="submit-lg" id="submitBtn">Clock In</button>
+    <div class="muted">Your time and in/out-of-zone result are decided by the server when this is submitted — they can't be set from this phone.</div>
+    <div class="brandcredit">A product of the ABCompany</div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
+const $ = id => document.getElementById(id);
+let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),3000); }
+
+const ORG = new URLSearchParams(location.search).get('org');
+let SITES=[], STAFF=[];
+let state={ photo:null, lat:null, lng:null, acc:null, type:'IN', staffId:null, name:null, position:null, siteId:null, siteName:null };
+
+// ---- live clock ----
+function tick(){ const d=new Date(),p=n=>String(n).padStart(2,'0');
+  $('liveTime').innerHTML=`${p(d.getHours())}:${p(d.getMinutes())}<span class="ss">:${p(d.getSeconds())}</span>`;
+  $('liveDate').textContent=d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+}
+setInterval(tick,1000); tick();
+
+// ---- load org context ----
+(async () => {
+  if(!ORG){ $('gate').textContent='This clock-in link is missing its organization. Ask your admin for the correct link.'; return; }
+  const { data, error } = await sb.rpc('clock_in_context', { p_org: ORG });
+  if(error || !data || data.error){ $('gate').textContent='This clock-in link is invalid or the organization is unavailable.'; return; }
+  SITES=data.sites||[]; STAFF=data.staff||[];
+  $('orgSub').textContent=data.org.name+' · Clock-In';
+  const sel=$('fStaff');
+  sel.innerHTML='<option value="">Select your name…</option>'+STAFF.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  $('gate').style.display='none'; $('form').style.display='block';
+  if(!STAFF.length) toast('No staff set up for this site yet');
+})();
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function getSite(id){ return SITES.find(s=>s.id===id); }
+
+// ---- staff selection ----
+$('fStaff').addEventListener('change', e => {
+  const st=STAFF.find(s=>s.id===e.target.value);
+  const card=$('assignCard');
+  if(!st){ state.staffId=null; state.siteId=null; card.style.display='none'; updateZone(); return; }
+  const site=getSite(st.siteId);
+  state.staffId=st.id; state.name=st.name; state.position=st.position; state.siteId=st.siteId; state.siteName=site?site.name:null;
+  $('acPos').textContent=st.position||'—';
+  $('acSite').textContent=site?`${site.name} · ${site.radius} m radius`:'⚠ no site assigned';
+  card.style.display='block'; updateZone();
+});
+
+// ---- geofence (client-side hint only; server decides) ----
+function distM(a1,o1,a2,o2){ const R=6371000,r=x=>x*Math.PI/180; const dA=r(a2-a1),dO=r(o2-o1);
+  const x=Math.sin(dA/2)**2+Math.cos(r(a1))*Math.cos(r(a2))*Math.sin(dO/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+function updateZone(){
+  const box=$('zoneStatus'); box.className='zone-box';
+  const site=getSite(state.siteId);
+  if(!state.staffId){ box.style.display='none'; return; }
+  if(!site){ box.classList.add('na'); box.textContent='No site assigned to you — ask your admin.'; return; }
+  if(state.lat==null||state.lng==null){ box.classList.add('na'); box.textContent='Capture GPS to check the zone.'; return; }
+  const d=Math.round(distM(state.lat,state.lng,site.lat,site.lng));
+  if(d<=site.radius){ box.classList.add('in'); box.textContent=`✓ WITHIN ${site.name} — ${d} m from centre.`; }
+  else { box.classList.add('out'); box.textContent=`⚠ OUTSIDE ZONE — ${d} m from ${site.name}. This will be flagged.`; }
+}
+
+// ---- GPS ----
+$('gpsBtn').addEventListener('click', () => {
+  const out=$('gpsOut'), btn=$('gpsBtn');
+  if(!navigator.geolocation){ showManual('Geolocation not supported — enter coordinates.'); return; }
+  out.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(pos=>{
+    state.lat=+pos.coords.latitude.toFixed(6); state.lng=+pos.coords.longitude.toFixed(6); state.acc=Math.round(pos.coords.accuracy);
+    out.innerHTML=`<b>LAT</b> ${state.lat} &nbsp; <b>LNG</b> ${state.lng}<br><b>± ${state.acc} m</b> accuracy`;
+    btn.classList.add('done'); btn.textContent='✓ GPS Captured'; updateZone();
+  }, err=>showManual('GPS unavailable ('+err.message+'). Enter coordinates below.'), {enableHighAccuracy:true,timeout:10000});
+});
+function showManual(msg){ $('gpsOut').textContent=msg; $('manualCoords').style.display='flex'; }
+$('fLat').addEventListener('input',e=>{ state.lat=e.target.value?+e.target.value:null; updateZone(); });
+$('fLng').addEventListener('input',e=>{ state.lng=e.target.value?+e.target.value:null; updateZone(); });
+$('simOn').addEventListener('click',()=>simulate(true));
+$('simFar').addEventListener('click',()=>simulate(false));
+function simulate(onsite){
+  const s=getSite(state.siteId); if(!s){ toast('⚠ Select your name first'); return; }
+  let lat=s.lat,lng=s.lng; if(!onsite){ lat+=0.0045; lng+=0.0045; }
+  state.lat=+lat.toFixed(6); state.lng=+lng.toFixed(6); state.acc=onsite?8:11;
+  $('fLat').value=state.lat; $('fLng').value=state.lng; $('manualCoords').style.display='flex';
+  $('gpsOut').innerHTML=`<b>LAT</b> ${state.lat} &nbsp; <b>LNG</b> ${state.lng}<br><b>± ${state.acc} m</b> (simulated)`;
+  const gb=$('gpsBtn'); gb.classList.add('done'); gb.textContent='✓ GPS Captured (sim)'; updateZone();
+}
+
+// ---- photo ----
+$('photoBtn').addEventListener('click',()=>$('fPhoto').click());
+$('fPhoto').addEventListener('change', e => {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{ const img=new Image();
+    img.onload=()=>{ const max=360; let{width,height}=img;
+      if(width>height){ if(width>max){height=height*max/width;width=max;} } else { if(height>max){width=width*max/height;height=max;} }
+      const c=document.createElement('canvas'); c.width=width;c.height=height; c.getContext('2d').drawImage(img,0,0,width,height);
+      state.photo=c.toDataURL('image/jpeg',0.6);
+      const prev=$('photoPrev'); prev.src=state.photo; prev.style.display='block';
+      const b=$('photoBtn'); b.classList.add('done'); b.textContent='✓ Photo Captured'; };
+    img.src=ev.target.result; };
+  reader.readAsDataURL(file);
+});
+
+// ---- In/Out ----
+$('btnIn').addEventListener('click',()=>setType('IN'));
+$('btnOut').addEventListener('click',()=>setType('OUT'));
+function setType(t){ state.type=t;
+  const i=$('btnIn'),o=$('btnOut');
+  i.className=t==='IN'?'sel-in':''; i.textContent=t==='IN'?'● In':'○ In';
+  o.className=t==='OUT'?'sel-out':''; o.textContent=t==='OUT'?'● Out':'○ Out';
+  $('submitBtn').textContent=t==='IN'?'Clock In':'Clock Out';
+}
+
+// ---- submit (server stamps time + decides geofence) ----
+$('submitBtn').addEventListener('click', async () => {
+  if(!state.staffId){ toast('⚠ Select your name'); return; }
+  if(state.lat==null||state.lng==null){ toast('⚠ Capture or enter GPS'); return; }
+  if(!state.photo){ toast('⚠ Photo is required'); return; }
+  const btn=$('submitBtn'); btn.disabled=true; const label=btn.textContent; btn.textContent='Submitting…';
+  const { data, error } = await sb.rpc('submit_clock_event', {
+    p_staff_id: state.staffId, p_event_type: state.type, p_lat: state.lat, p_lng: state.lng,
+    p_gps_accuracy_m: state.acc, p_device_time: new Date().toISOString(), p_photo_url: state.photo,
+    p_device_info: { ua: navigator.userAgent }
+  });
+  btn.disabled=false; btn.textContent=label;
+  if(error){ toast('⚠ '+error.message); return; }
+  const inzone = data.within_geofence===true, oz = data.within_geofence===false;
+  toast(`✓ ${state.type==='IN'?'Clocked in':'Clocked out'} — ${state.name}${oz?` (⚠ out of zone · ${data.distance_m}m)`:inzone?` (in zone · ${data.distance_m}m)`:''}`);
+  resetForm();
+});
+function resetForm(){
+  $('fStaff').value=''; $('assignCard').style.display='none';
+  $('zoneStatus').className='zone-box'; $('zoneStatus').style.display='none';
+  $('fLat').value=''; $('fLng').value=''; $('manualCoords').style.display='none'; $('gpsOut').textContent='';
+  const gb=$('gpsBtn'); gb.classList.remove('done'); gb.textContent='⊕ Capture GPS';
+  const pb=$('photoBtn'); pb.classList.remove('done'); pb.textContent='⊙ Take / Choose photo';
+  $('photoPrev').style.display='none';
+  state={ photo:null, lat:null, lng:null, acc:null, type:state.type, staffId:null, name:null, position:null, siteId:null, siteName:null };
+}
+setType('IN');
+</script>
+</body>
+</html>

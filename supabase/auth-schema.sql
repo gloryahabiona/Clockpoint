@@ -133,3 +133,33 @@ $$;
 drop trigger if exists app_users_admin_limit on app_users;
 create trigger app_users_admin_limit before insert on app_users
   for each row execute function enforce_admin_limit();
+
+-- ---------------------------------------------------------------------------
+-- 8. Staff clock-in context — ONE anon-callable function that returns just the
+--    active staff + sites for a SPECIFIC organization (from its per-org link).
+--    This replaces broad anon table reads, so one org's roster isn't exposed
+--    to everyone. The staff screen is unauthenticated by design (MVP).
+-- ---------------------------------------------------------------------------
+drop policy if exists staff_anon_read on staff;   -- no broad anon table reads
+drop policy if exists sites_anon_read on sites;
+
+create or replace function clock_in_context(p_org uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare org_row organizations%rowtype;
+begin
+  select * into org_row from organizations where id = p_org and status = 'active';
+  if not found then return jsonb_build_object('error', 'Organization not found'); end if;
+  return jsonb_build_object(
+    'org', jsonb_build_object('id', org_row.id, 'name', org_row.name),
+    'sites', coalesce((
+      select jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name,
+               'lat', s.center_lat, 'lng', s.center_lng, 'radius', s.radius_m) order by s.name)
+      from sites s where s.organization_id = p_org and s.active), '[]'::jsonb),
+    'staff', coalesce((
+      select jsonb_agg(jsonb_build_object('id', st.id, 'name', st.full_name,
+               'position', st.position, 'siteId', st.assigned_site_id) order by st.full_name)
+      from staff st where st.organization_id = p_org and st.active), '[]'::jsonb)
+  );
+end;
+$$;
+grant execute on function clock_in_context(uuid) to anon, authenticated;
