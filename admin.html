@@ -7,51 +7,333 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="cp.css">
 <script src="config.js"></script>
+<style>
+  .tabs{display:flex;border-top:1px solid rgba(201,182,240,0.14);}
+  .tab{flex:1;padding:13px 6px;background:none;border:none;color:var(--text-soft);font-family:var(--ui);font-size:12.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;}
+  .tab:hover{color:var(--text);}
+  .tab.active{color:var(--text);border-bottom-color:var(--purple);background:rgba(154,109,247,0.10);}
+  .panel{display:none;padding:18px;}
+  .panel.active{display:block;}
+  .adminbar{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end;flex-wrap:wrap;}
+  .adminbar .field{margin:0;flex:1;min-width:130px;}
+  input[type=date]{font-family:var(--mono);font-size:13px;padding:11px;}
+  .stat-row{display:flex;gap:10px;margin-bottom:14px;}
+  .stat{flex:1;border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;background:var(--surface);}
+  .stat .n{font-family:var(--mono);font-size:24px;font-weight:500;line-height:1;color:var(--purple);}
+  .stat .l{font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);margin-top:5px;}
+  .flagline{font-family:var(--mono);font-size:12px;font-weight:700;margin:-4px 0 12px;}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .rec{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:10px;display:flex;overflow:hidden;}
+  .rec .pic{width:74px;flex:none;background:#070510;}
+  .rec .pic img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rec .pic.noimg{display:flex;align-items:center;justify-content:center;color:rgba(201,182,240,.35);font-family:var(--mono);font-size:9px;text-align:center;padding:4px;}
+  .rec .body{flex:1;padding:11px 13px;min-width:0;}
+  .rec .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .rec .nm{font-weight:600;font-size:15px;}
+  .rec .badge{font-size:10px;font-weight:700;letter-spacing:0.4px;padding:3px 8px;border-radius:4px;text-transform:uppercase;flex:none;}
+  .badge.in{background:var(--army);color:#0c0c06;}
+  .badge.out{background:var(--purple-deep);color:#fff;}
+  .rec .pos{font-size:13px;color:var(--text-soft);margin-top:2px;}
+  .rec .meta{font-family:var(--mono);font-size:10px;color:var(--text-soft);margin-top:8px;line-height:1.6;}
+  .rec .meta .t{color:var(--lilac);font-weight:500;}
+  .zchip{display:inline-block;margin-top:7px;font-size:10px;font-weight:700;letter-spacing:0.3px;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+  .zchip.in{background:var(--in-bg);color:var(--in-text);border:1px solid var(--in-border);}
+  .zchip.out{background:var(--out-bg);color:var(--out-text);border:1px solid var(--out-border);}
+  .zchip.na{background:var(--surface-2);color:var(--text-soft);border:1px solid var(--line);}
+  .site-card{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:10px;padding:13px;}
+  .site-nm{font-weight:600;font-size:15px;}
+  .site-meta{font-family:var(--mono);font-size:10px;color:var(--text-soft);margin-top:5px;word-break:break-all;}
+  .site-acts{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;}
+  .site-acts button{font-size:11.5px;font-weight:600;padding:8px 11px;border-radius:5px;border:1px solid var(--purple);background:none;color:var(--purple);cursor:pointer;}
+  .site-acts button:hover{background:rgba(154,109,247,0.12);}
+  .site-acts button.del{border-color:var(--danger);color:var(--danger);}
+  .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:7px 8px 7px 14px;font-size:13px;font-weight:500;}
+  .chip button{border:none;background:var(--surface-2);color:var(--text-soft);width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;}
+  .chip button:hover{background:var(--danger);color:#fff;}
+  .btn-clear{width:100%;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:none;color:var(--text-soft);font-weight:600;font-size:12px;cursor:pointer;}
+  .btn-clear:hover{color:var(--text);border-color:var(--lilac);}
+  .lab2{font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);}
+</style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div class="brand">
       <div class="logo-mark"></div>
-      <div>
-        <h1>ClockPoint</h1>
-        <span class="sub" id="sub">Organization Admin</span>
-      </div>
+      <div><h1>ClockPoint</h1><span class="sub" id="orgSub">Organization Admin</span></div>
       <div class="head-actions">
         <button id="logout" class="btn ghost" style="width:auto;padding:8px 12px;">Sign out</button>
       </div>
     </div>
-  </header>
-  <section class="panel" id="app" style="display:none;">
-    <div class="card">
-      <div class="lab-h" style="margin-bottom:8px;">Welcome<span id="who"></span></div>
-      <p style="color:var(--text-soft);font-size:14px;line-height:1.6;">
-        You’re signed in as an organization admin. Managing your staff, sites and
-        attendance log from here is the next step we’re building. For now your
-        account, organization and secure access are all set up.
-      </p>
+    <div class="tabs" id="tabs">
+      <button class="tab active" data-view="log">Log</button>
+      <button class="tab" data-view="sites">Sites</button>
+      <button class="tab" data-view="staff">Staff</button>
     </div>
-    <div class="brandcredit">A product of the ABCompany</div>
+  </header>
+
+  <section class="panel active" id="panel-log">
+    <div class="adminbar">
+      <div class="field"><label class="lab" for="logDate">Log date</label><input type="date" id="logDate"></div>
+      <div class="field" style="flex:0;"><label class="lab">&nbsp;</label><button class="btn-clear" id="todayBtn" style="white-space:nowrap;padding:11px 14px;">Today</button></div>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Records</div></div>
+      <div class="stat"><div class="n" id="statIn">0</div><div class="l">Clock-In</div></div>
+      <div class="stat"><div class="n" id="statOut">0</div><div class="l">Clock-Out</div></div>
+    </div>
+    <div class="flagline" id="flagLine"></div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn" id="expDay" style="flex:1;">⤓ Excel — this day</button>
+      <button class="btn ghost" id="expAll" style="flex:1;">⤓ Excel — all</button>
+    </div>
+    <div id="logList"></div>
   </section>
+
+  <section class="panel" id="panel-sites">
+    <div class="card" style="margin-bottom:16px;">
+      <div class="field"><label class="lab" for="sName">Site name</label><input id="sName" placeholder="e.g. Victoria Island Branch" autocomplete="off"></div>
+      <div class="row2" style="margin-bottom:15px;">
+        <div><label class="lab" for="sLat">Latitude</label><input type="number" step="any" id="sLat" placeholder="6.4281"></div>
+        <div><label class="lab" for="sLng">Longitude</label><input type="number" step="any" id="sLng" placeholder="3.4219"></div>
+      </div>
+      <div class="row2" style="margin-bottom:15px;align-items:flex-end;">
+        <div><label class="lab" for="sRad">Radius (m)</label><input type="number" id="sRad" placeholder="100"></div>
+        <div><button type="button" class="btn ghost" id="sUseLoc">⊕ Use my location</button></div>
+      </div>
+      <button class="btn" id="sSave">Add site</button>
+      <button class="btn-clear" id="sCancel" style="margin-top:8px;display:none;">Cancel edit</button>
+    </div>
+    <div class="lab2" style="margin:4px 0 10px;">Defined sites</div>
+    <div id="sitesList"></div>
+  </section>
+
+  <section class="panel" id="panel-staff">
+    <div class="lab2" style="margin:2px 0 10px;">Positions</div>
+    <div class="row2" style="margin-bottom:12px;align-items:stretch;">
+      <div><input id="posName" placeholder="Add a position" autocomplete="off"></div>
+      <div style="flex:0;"><button class="btn" id="posAdd" style="height:100%;padding:0 20px;white-space:nowrap;">Add</button></div>
+    </div>
+    <div id="posList" class="chip-wrap"></div>
+
+    <div class="lab2" style="margin:24px 0 10px;">Staff roster</div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="field"><input id="stName" placeholder="Staff full name" autocomplete="off"></div>
+      <div class="row2" style="margin-bottom:15px;">
+        <div><label class="lab" for="stPos">Position</label><select id="stPos"></select></div>
+        <div><label class="lab" for="stSite">Assigned site</label><select id="stSite"></select></div>
+      </div>
+      <button class="btn" id="stSave">Add staff</button>
+      <button class="btn-clear" id="stCancel" style="margin-top:8px;display:none;">Cancel edit</button>
+    </div>
+    <div class="lab2" style="margin:4px 0 10px;">Current staff</div>
+    <div id="staffList"></div>
+  </section>
+
+  <div class="brandcredit" style="padding:8px 0 24px;">A product of the ABCompany</div>
 </div>
+<div class="toast" id="toast"></div>
+
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const sb = createClient(CP_CONFIG.SUPABASE_URL, CP_CONFIG.SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),2600); }
+
+let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
+
+// ---- auth guard ----
 (async () => {
   const { data:{ session } } = await sb.auth.getSession();
   if (!session){ location.replace('login.html'); return; }
   const { data, error } = await sb.rpc('whoami');
-  if (error || !data?.app_user){
-    if (data?.is_super){ location.replace('console.html'); return; }
-    location.replace('login.html'); return;
-  }
-  $('who').textContent = data.app_user.email ? (', '+data.app_user.email) : '';
-  $('app').style.display='block';
+  if (error){ toast('Could not load profile'); return; }
+  if (data.is_super && !data.app_user){ location.replace('console.html'); return; }
+  if (!data.app_user){ location.replace('login.html'); return; }
+  ORG = data.app_user.organization_id;
+  $('orgSub').textContent = data.app_user.email || 'Organization Admin';
+  setToday();
+  await Promise.all([loadSites(), loadPositions(), loadStaff()]);
+  renderSites(); renderPositions(); renderStaff(); populateStaffSelects();
+  renderLog();
 })();
 $('logout').addEventListener('click', async () => { await sb.auth.signOut(); location.replace('login.html'); });
+
+// ---- tabs ----
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x===t));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+t.dataset.view));
+  if (t.dataset.view==='log') renderLog();
+}));
+
+// ---- data loaders ----
+async function loadSites(){
+  const { data, error } = await sb.from('sites').select('id,name,center_lat,center_lng,radius_m').eq('organization_id',ORG).order('name');
+  if (!error) SITES = (data||[]).map(s=>({id:s.id,name:s.name,lat:+s.center_lat,lng:+s.center_lng,radius:+s.radius_m}));
+}
+async function loadPositions(){
+  const { data, error } = await sb.from('positions').select('id,name').eq('organization_id',ORG).order('name');
+  if (!error) POSITIONS = data||[];
+}
+async function loadStaff(){
+  const { data, error } = await sb.from('staff').select('id,full_name,position,assigned_site_id').eq('organization_id',ORG).order('full_name');
+  if (!error) STAFF = data||[];
+}
+function siteName(id){ const s=SITES.find(x=>x.id===id); return s?s.name:'—'; }
+
+// ---- Sites ----
+let editSite=null;
+function renderSites(){
+  const box=$('sitesList');
+  if(!SITES.length){ box.innerHTML='<div class="empty">No sites yet</div>'; return; }
+  box.innerHTML=SITES.map(s=>`<div class="site-card">
+    <div><div class="site-nm">${esc(s.name)}</div><div class="site-meta">${s.lat}, ${s.lng} · radius ${s.radius} m</div></div>
+    <div class="site-acts"><button data-act="edit" data-id="${s.id}">Edit</button><button data-act="del" data-id="${s.id}" class="del">Delete</button></div>
+  </div>`).join('');
+}
+$('sitesList').addEventListener('click', async e => {
+  const b=e.target.closest('button'); if(!b) return;
+  const s=SITES.find(x=>x.id===b.dataset.id); if(!s) return;
+  if(b.dataset.act==='edit'){ editSite=s.id; $('sName').value=s.name; $('sLat').value=s.lat; $('sLng').value=s.lng; $('sRad').value=s.radius; $('sSave').textContent='Update site'; $('sCancel').style.display='block'; window.scrollTo({top:0,behavior:'smooth'}); }
+  else if(b.dataset.act==='del'){ if(!confirm('Delete site "'+s.name+'"?')) return;
+    const { error } = await sb.from('sites').delete().eq('id', s.id);
+    if(error){ toast('⚠ '+error.message); return; } await loadSites(); renderSites(); populateStaffSelects(); toast('Site deleted'); }
+});
+function cancelSite(){ editSite=null; ['sName','sLat','sLng','sRad'].forEach(i=>$(i).value=''); $('sSave').textContent='Add site'; $('sCancel').style.display='none'; }
+$('sCancel').addEventListener('click', cancelSite);
+$('sSave').addEventListener('click', async () => {
+  const name=$('sName').value.trim(), lat=parseFloat($('sLat').value), lng=parseFloat($('sLng').value), rad=parseInt($('sRad').value,10);
+  if(!name){ toast('⚠ Enter a site name'); return; }
+  if(isNaN(lat)||isNaN(lng)){ toast('⚠ Enter valid coordinates'); return; }
+  if(isNaN(rad)||rad<=0){ toast('⚠ Enter a radius'); return; }
+  const row={ name, center_lat:+lat.toFixed(6), center_lng:+lng.toFixed(6), radius_m:rad };
+  let error;
+  if(editSite){ ({ error } = await sb.from('sites').update(row).eq('id', editSite)); }
+  else { ({ error } = await sb.from('sites').insert({ ...row, organization_id:ORG, active:true })); }
+  if(error){ toast('⚠ '+error.message); return; }
+  await loadSites(); renderSites(); populateStaffSelects(); cancelSite(); toast(editSite?'Site updated':'Site added');
+});
+$('sUseLoc').addEventListener('click', () => {
+  if(!navigator.geolocation){ toast('⚠ Geolocation unavailable'); return; }
+  toast('Locating…');
+  navigator.geolocation.getCurrentPosition(p=>{ $('sLat').value=+p.coords.latitude.toFixed(6); $('sLng').value=+p.coords.longitude.toFixed(6); toast('✓ Location filled'); }, err=>toast('⚠ '+err.message), {enableHighAccuracy:true,timeout:10000});
+});
+
+// ---- Positions ----
+function renderPositions(){
+  const box=$('posList');
+  if(!POSITIONS.length){ box.innerHTML='<div class="empty">No positions yet</div>'; return; }
+  box.innerHTML=POSITIONS.map(p=>`<span class="chip">${esc(p.name)} <button data-id="${p.id}" title="Remove">✕</button></span>`).join('');
+}
+$('posList').addEventListener('click', async e => {
+  const b=e.target.closest('button'); if(!b) return;
+  const p=POSITIONS.find(x=>x.id===b.dataset.id); if(!p) return;
+  if(!confirm('Remove position "'+p.name+'"? Existing staff keep their saved position.')) return;
+  const { error } = await sb.from('positions').delete().eq('id', p.id);
+  if(error){ toast('⚠ '+error.message); return; } await loadPositions(); renderPositions(); populateStaffSelects(); toast('Position removed');
+});
+$('posAdd').addEventListener('click', async () => {
+  const v=$('posName').value.trim(); if(!v){ toast('⚠ Enter a position'); return; }
+  if(POSITIONS.some(p=>p.name.toLowerCase()===v.toLowerCase())){ toast('⚠ Already exists'); return; }
+  const { error } = await sb.from('positions').insert({ organization_id:ORG, name:v });
+  if(error){ toast('⚠ '+error.message); return; } $('posName').value=''; await loadPositions(); renderPositions(); populateStaffSelects(); toast('✓ Position added');
+});
+
+// ---- Staff ----
+let editStaff=null;
+function populateStaffSelects(){
+  const ps=$('stPos'), ss=$('stSite');
+  ps.innerHTML='<option value="">Select position…</option>'+POSITIONS.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+  ss.innerHTML='<option value="">Select site…</option>'+SITES.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+}
+function renderStaff(){
+  const box=$('staffList');
+  if(!STAFF.length){ box.innerHTML='<div class="empty">No staff yet</div>'; return; }
+  box.innerHTML=STAFF.map(s=>`<div class="site-card">
+    <div style="min-width:0;"><div class="site-nm">${esc(s.full_name)}</div><div class="site-meta">${esc(s.position||'—')} · ${esc(siteName(s.assigned_site_id))}</div></div>
+    <div class="site-acts"><button data-act="edit" data-id="${s.id}">Edit</button><button data-act="del" data-id="${s.id}" class="del">Delete</button></div>
+  </div>`).join('');
+}
+$('staffList').addEventListener('click', async e => {
+  const b=e.target.closest('button'); if(!b) return;
+  const s=STAFF.find(x=>x.id===b.dataset.id); if(!s) return;
+  if(b.dataset.act==='edit'){ editStaff=s.id; $('stName').value=s.full_name; populateStaffSelects(); $('stPos').value=s.position||''; $('stSite').value=s.assigned_site_id||''; $('stSave').textContent='Update staff'; $('stCancel').style.display='block'; window.scrollTo({top:0,behavior:'smooth'}); }
+  else if(b.dataset.act==='del'){ if(!confirm('Delete staff "'+s.full_name+'"?')) return;
+    const { error } = await sb.from('staff').delete().eq('id', s.id);
+    if(error){ toast('⚠ '+error.message); return; } await loadStaff(); renderStaff(); toast('Staff deleted'); }
+});
+function cancelStaff(){ editStaff=null; $('stName').value=''; $('stPos').value=''; $('stSite').value=''; $('stSave').textContent='Add staff'; $('stCancel').style.display='none'; }
+$('stCancel').addEventListener('click', cancelStaff);
+$('stSave').addEventListener('click', async () => {
+  const name=$('stName').value.trim(), position=$('stPos').value, siteId=$('stSite').value;
+  if(!name){ toast('⚠ Enter staff name'); return; }
+  if(!position){ toast('⚠ Select a position'); return; }
+  if(!siteId){ toast('⚠ Assign a site'); return; }
+  const row={ full_name:name, position, assigned_site_id:siteId };
+  let error;
+  if(editStaff){ ({ error } = await sb.from('staff').update(row).eq('id', editStaff)); }
+  else { ({ error } = await sb.from('staff').insert({ ...row, organization_id:ORG, active:true })); }
+  if(error){ toast('⚠ '+error.message); return; }
+  await loadStaff(); renderStaff(); cancelStaff(); toast(editStaff?'Staff updated':'✓ Staff added');
+});
+
+// ---- Log ----
+function setToday(){ const d=new Date(),p=n=>String(n).padStart(2,'0'); $('logDate').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+$('todayBtn').addEventListener('click',()=>{ setToday(); renderLog(); });
+$('logDate').addEventListener('change', renderLog);
+function sameDay(ts,ds){ const d=new Date(ts),p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`===ds; }
+function fmtTime(ts){ const d=new Date(ts),p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+
+let EVENTS=[];
+async function fetchEvents(){
+  const { data, error } = await sb.from('clock_events')
+    .select('id,staff_name,position,site_name,event_type,server_time,lat,lng,gps_accuracy_m,distance_m,within_geofence,photo_url')
+    .eq('organization_id',ORG).order('server_time',{ascending:false}).limit(2000);
+  EVENTS = error ? [] : (data||[]).map(r=>({
+    id:r.id, ts:r.server_time?new Date(r.server_time).getTime():Date.now(), name:r.staff_name, position:r.position,
+    site:r.site_name, type:r.event_type, lat:r.lat, lng:r.lng, acc:r.gps_accuracy_m, distance:r.distance_m,
+    zone:r.within_geofence===null?'NA':(r.within_geofence?'IN':'OUT'), photo:r.photo_url
+  }));
+}
+async function renderLog(){
+  await fetchEvents();
+  const ds=$('logDate').value;
+  const list=ds?EVENTS.filter(r=>sameDay(r.ts,ds)):EVENTS;
+  $('statTotal').textContent=list.length;
+  $('statIn').textContent=list.filter(r=>r.type==='IN').length;
+  $('statOut').textContent=list.filter(r=>r.type==='OUT').length;
+  const flagged=list.filter(r=>r.zone==='OUT').length;
+  const fl=$('flagLine');
+  fl.textContent=flagged?`⚠ ${flagged} clock-in(s) outside assigned zone — review`:(list.length?'✓ All clock-ins within assigned zones':'');
+  fl.style.color=flagged?'var(--danger)':'var(--army)';
+  const box=$('logList');
+  if(!list.length){ box.innerHTML='<div class="empty">No records for this day</div>'; return; }
+  box.innerHTML=list.map(r=>{
+    const zc=r.zone==='IN'?`<span class="zchip in">In zone · ${r.distance}m</span>`:r.zone==='OUT'?`<span class="zchip out">Out of zone · ${r.distance}m</span>`:`<span class="zchip na">No geofence</span>`;
+    return `<div class="rec">${r.photo?`<div class="pic"><img src="${esc(r.photo)}" alt=""></div>`:'<div class="pic noimg">NO<br>PHOTO</div>'}
+    <div class="body"><div class="top"><span class="nm">${esc(r.name)}</span><span class="badge ${r.type==='IN'?'in':'out'}">${esc(r.type)}</span></div>
+    <div class="pos">${esc(r.position||'—')} · ${esc(r.site||'—')}</div>${zc}
+    <div class="meta"><span class="t">${fmtTime(r.ts)}</span> &nbsp;|&nbsp; ${esc(r.id).slice(0,8)}<br>${r.lat??'—'}, ${r.lng??'—'} ${r.acc?`(±${r.acc}m)`:''}</div></div></div>`;
+  }).join('');
+}
+function exportRows(rows, fname){
+  if(!rows.length){ toast('⚠ Nothing to export'); return; }
+  const data=rows.map(r=>{ const d=new Date(r.ts); return {
+    'Record ID':r.id, 'Date':d.toLocaleDateString(), 'Time':fmtTime(r.ts), 'Name':r.name, 'Position':r.position||'',
+    'Action':r.type==='IN'?'Clock In':'Clock Out', 'Site':r.site||'', 'Distance to centre (m)':r.distance??'',
+    'Zone':r.zone==='IN'?'In zone':r.zone==='OUT'?'OUT OF ZONE':'No geofence', 'Latitude':r.lat??'', 'Longitude':r.lng??'',
+    'GPS Accuracy (m)':r.acc||'', 'Map Link':(r.lat!=null&&r.lng!=null)?`https://maps.google.com/?q=${r.lat},${r.lng}`:'', 'Photo on file':r.photo?'Yes':'No' };});
+  const ws=XLSX.utils.json_to_sheet(data);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Attendance Log');
+  XLSX.writeFile(wb,fname); toast('⤓ Exported '+rows.length+' records');
+}
+$('expDay').addEventListener('click', async () => { await fetchEvents(); const ds=$('logDate').value; exportRows(EVENTS.filter(r=>sameDay(r.ts,ds)), `attendance_${ds}.xlsx`); });
+$('expAll').addEventListener('click', async () => { await fetchEvents(); exportRows(EVENTS, 'attendance_all.xlsx'); });
 </script>
 </body>
 </html>
