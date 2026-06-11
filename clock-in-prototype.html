@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ClockPoint — Staff Attendance Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    /* body (dark default) */
+    --bg:#0D0916; --surface:#191225; --surface-2:#221934; --black:#070510;
+    --text:#ECE5F8; --text-soft:#A99AC6; --line:#3C2F55;
+    --purple:#9A6DF7; --purple-deep:#6E3FD6; --purple-hover:#a87ff8; --lilac:#C9B6F0;
+    --army:#7C8A3C; --army-deep:#5A6B2D; --peach:#F6A98A; --danger:#C25A52;
+    --on-purple:#160f29; --on-army:#0c0c06; --placeholder:#6f6391;
+    --in-bg:rgba(124,138,60,0.16); --in-text:#cfe08a; --in-border:#7C8A3C;
+    --out-bg:rgba(194,90,82,0.15); --out-text:#f0a39c; --out-border:#C25A52;
+    --peach-bg:rgba(246,169,138,0.16);
+    --dot:rgba(201,182,240,0.04);
+    /* header — constant dark bar in both themes */
+    --header-bg:#0A0713; --header-text:#ECE5F8; --header-soft:#A99AC6;
+    --header-line:rgba(201,182,240,0.14); --header-active:rgba(154,109,247,0.14); --header-accent:#C9B6F0;
+    /* aliases */
+    --ink-soft:#A99AC6; --red:#C25A52; --card:var(--surface);
+    --ui:'Hanken Grotesk',-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace; --r:6px;
+  }
+  html[data-theme="light"]{
+    --bg:#F5F0EA; --surface:#FFFFFF; --surface-2:#F3ECEF; --black:#070510;
+    --text:#241B33; --text-soft:#6E6385; --line:#E3DAEC;
+    --purple:#7C4DDB; --purple-deep:#5B30C0; --purple-hover:#8a5fe6; --lilac:#8E76C4;
+    --army:#5A6B2D; --army-deep:#445320; --peach:#D9743F; --danger:#B23A30;
+    --on-purple:#FFFFFF; --on-army:#FFFFFF; --placeholder:#9a8fb0;
+    --in-bg:rgba(90,107,45,0.13); --in-text:#41501e; --in-border:#5A6B2D;
+    --out-bg:rgba(178,58,48,0.10); --out-text:#9e2f27; --out-border:#B23A30;
+    --peach-bg:rgba(217,116,63,0.14);
+    --dot:rgba(124,90,200,0.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;transition:background .25s ease,color .25s ease;}
+  body{min-height:100vh;background-image:radial-gradient(var(--dot) 1px, transparent 1px);background-size:7px 7px;}
+  .wrap{max-width:540px;margin:0 auto;padding:0 0 60px;}
+  /* Header */
+  header{border-bottom:1px solid var(--header-line);background:var(--header-bg);color:var(--header-text);position:sticky;top:0;z-index:20;}
+  .brand{padding:15px 18px 13px;display:flex;align-items:center;gap:11px;}
+  .brand-txt{min-width:0;}
+  .head-actions{margin-left:auto;display:flex;gap:8px;flex:none;}
+  .logo-mark{width:30px;height:30px;border:2px solid var(--header-accent);border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;position:relative;}
+  .logo-mark::before{content:"";position:absolute;width:2px;height:9px;background:var(--header-accent);transform-origin:bottom;top:5px;border-radius:2px;}
+  .logo-mark::after{content:"";position:absolute;width:2px;height:6px;background:var(--peach);transform-origin:bottom;top:8px;transform:rotate(75deg);border-radius:2px;}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:-0.2px;color:var(--header-text);}
+  .brand .sub{font-size:10px;letter-spacing:1.4px;font-weight:600;color:var(--header-accent);text-transform:uppercase;display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lock-btn{padding:7px 12px;border:1px solid var(--header-line);background:none;color:var(--header-soft);border-radius:var(--r);cursor:pointer;font-family:var(--ui);font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;flex:none;transition:.15s;}
+  .lock-btn:hover{color:var(--header-text);border-color:var(--header-accent);}
+  .lock-btn.on{border-color:#7C8A3C;color:#bcd06a;background:rgba(124,138,60,0.2);}
+  .tabs{display:none;border-top:1px solid var(--header-line);}
+  .tab{flex:1;padding:13px 6px;background:none;border:none;color:var(--header-soft);font-family:var(--ui);font-size:12.5px;font-weight:600;letter-spacing:0.2px;cursor:pointer;border-bottom:2px solid transparent;transition:.15s;}
+  .tab:hover{color:var(--header-text);}
+  .tab.active{color:var(--header-text);border-bottom-color:var(--purple);background:var(--header-active);}
+  /* Panels */
+  .panel{display:none;padding:18px;animation:fade .25s ease;}
+  .panel.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  /* Live clock */
+  .clockface{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:17px 19px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;box-shadow:0 2px 18px rgba(0,0,0,0.12);}
+  .clockface .time{font-family:var(--mono);font-size:34px;font-weight:500;line-height:1;letter-spacing:-1px;color:var(--text);}
+  .clockface .date{font-family:var(--mono);font-size:11px;font-weight:400;color:var(--text-soft);text-align:right;letter-spacing:0.5px;}
+  .clockface .ss{color:var(--peach);}
+  /* Form */
+  .field{margin-bottom:15px;}
+  label.lab{display:block;font-family:var(--ui);font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);margin-bottom:7px;}
+  input[type=text],select,input[type=number]{width:100%;padding:13px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);font-family:var(--ui);font-size:15px;color:var(--text);font-weight:400;}
+  input::placeholder{color:var(--placeholder);}
+  input:focus,select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(154,109,247,0.22);}
+  select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23C9B6F0' stroke-width='2' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;}
+  html[data-theme="light"] select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236E6385' stroke-width='2' fill='none'/%3E%3C/svg%3E");}
+  /* In/Out toggle */
+  .toggle{display:flex;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);overflow:hidden;}
+  .toggle button{flex:1;padding:13px;background:none;border:none;font-family:var(--ui);font-size:14px;font-weight:600;letter-spacing:0.3px;cursor:pointer;color:var(--text-soft);transition:.12s;}
+  .toggle button.sel-in{background:var(--army);color:var(--on-army);}
+  .toggle button.sel-out{background:var(--purple-deep);color:#fff;}
+  /* Capture rows */
+  .capture-btn{width:100%;padding:13px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface-2);font-family:var(--ui);font-size:13px;font-weight:600;letter-spacing:0.2px;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;gap:8px;transition:.12s;}
+  .capture-btn:hover{border-color:var(--lilac);}
+  .capture-btn:active{background:var(--purple);color:var(--on-purple);}
+  .capture-btn.done{border-style:solid;border-color:var(--in-border);background:var(--in-bg);color:var(--in-text);}
+  .readout{font-family:var(--mono);font-size:11px;color:var(--text-soft);margin-top:7px;line-height:1.55;word-break:break-all;}
+  .readout b{color:var(--lilac);font-weight:500;}
+  .photo-prev{margin-top:9px;width:84px;height:84px;object-fit:cover;border:1px solid var(--line);border-radius:var(--r);display:none;}
+  .manual-coords{display:none;gap:8px;margin-top:9px;}
+  .manual-coords input{flex:1;}
+  /* Submit */
+  .submit{width:100%;padding:17px;margin-top:8px;border:none;border-radius:var(--r);background:var(--purple);color:var(--on-purple);font-family:var(--ui);font-size:16px;font-weight:700;letter-spacing:0.2px;cursor:pointer;box-shadow:0 6px 18px rgba(154,109,247,0.25);transition:.12s;}
+  .submit:hover{background:var(--purple-hover);}
+  .submit:active{transform:translateY(1px);box-shadow:0 3px 10px rgba(154,109,247,0.28);}
+  .submit:disabled{opacity:.4;cursor:not-allowed;}
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120px);background:var(--header-bg);color:var(--header-text);padding:14px 22px;border:1px solid var(--purple);border-radius:var(--r);font-family:var(--ui);font-size:13px;font-weight:500;letter-spacing:0.2px;z-index:50;transition:.3s;max-width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.4);}
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  /* Admin */
+  .adminbar{display:flex;gap:10px;margin-bottom:14px;align-items:flex-end;flex-wrap:wrap;}
+  .adminbar .field{margin:0;flex:1;min-width:130px;}
+  input[type=date]{width:100%;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);font-family:var(--mono);font-size:13px;color:var(--text);}
+  .stat-row{display:flex;gap:10px;margin-bottom:16px;}
+  .stat{flex:1;border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;background:var(--surface);}
+  .stat .n{font-family:var(--mono);font-size:24px;font-weight:500;line-height:1;color:var(--purple);}
+  .stat .l{font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);margin-top:5px;}
+  .btn-export{width:100%;padding:14px;border:none;border-radius:var(--r);background:var(--purple);color:var(--on-purple);font-family:var(--ui);font-weight:700;font-size:14px;letter-spacing:0.2px;cursor:pointer;box-shadow:0 5px 16px rgba(154,109,247,0.24);margin-bottom:9px;transition:.12s;}
+  .btn-export:hover{background:var(--purple-hover);}
+  .btn-export:active{transform:translateY(1px);}
+  .btn-clear{width:100%;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:none;color:var(--text-soft);font-family:var(--ui);font-weight:600;font-size:12px;letter-spacing:0.2px;cursor:pointer;transition:.12s;}
+  .btn-clear:hover{color:var(--text);border-color:var(--lilac);}
+  /* Log records */
+  .rec{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:10px;display:flex;gap:0;overflow:hidden;}
+  .rec .pic{width:74px;flex:none;background:var(--black);}
+  .rec .pic img{width:100%;height:100%;object-fit:cover;display:block;}
+  .rec .pic.noimg{display:flex;align-items:center;justify-content:center;color:rgba(201,182,240,.35);font-family:var(--mono);font-size:9px;text-align:center;padding:4px;}
+  .rec .body{flex:1;padding:11px 13px;min-width:0;}
+  .rec .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+  .rec .nm{font-weight:600;font-size:15px;color:var(--text);}
+  .rec .badge{font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:0.4px;padding:3px 8px;border-radius:4px;text-transform:uppercase;flex:none;}
+  .badge.in{background:var(--army);color:var(--on-army);}
+  .badge.out{background:var(--purple-deep);color:#fff;}
+  .rec .pos{font-size:13px;color:var(--text-soft);font-weight:400;margin-top:2px;}
+  .rec .meta{font-family:var(--mono);font-size:10px;color:var(--text-soft);margin-top:8px;line-height:1.6;}
+  .rec .meta .t{color:var(--lilac);font-weight:500;}
+  .empty{text-align:center;padding:46px 20px;border:1px dashed var(--line);border-radius:var(--r);background:var(--surface);font-family:var(--ui);font-size:13px;font-weight:500;color:var(--text-soft);}
+  .note{font-family:var(--ui);font-size:11.5px;font-weight:400;color:var(--text-soft);line-height:1.65;border-left:2px solid var(--purple);padding:6px 0 6px 13px;margin-top:18px;}
+  .storage-warn{background:rgba(154,109,247,0.12);border:1px solid var(--purple-deep);border-radius:var(--r);padding:11px 13px;font-family:var(--ui);font-size:12px;color:var(--purple);margin-bottom:14px;display:none;line-height:1.5;}
+  /* Geofence */
+  .sim-row{display:flex;gap:8px;margin-top:9px;}
+  .sim-btn{flex:1;padding:9px;border:1px dashed var(--line);border-radius:var(--r);background:none;color:var(--text-soft);font-family:var(--ui);font-size:11.5px;font-weight:600;letter-spacing:0.1px;cursor:pointer;transition:.12s;}
+  .sim-btn:hover{color:var(--text);border-color:var(--lilac);}
+  .sim-btn:active{background:var(--surface-2);color:var(--text);}
+  .zone-box{margin-top:11px;padding:12px 13px;border-radius:var(--r);font-family:var(--ui);font-size:13px;font-weight:600;letter-spacing:0.1px;line-height:1.45;display:none;border:1px solid;}
+  .zone-box.in{display:block;border-color:var(--in-border);background:var(--in-bg);color:var(--in-text);}
+  .zone-box.out{display:block;border-color:var(--out-border);background:var(--out-bg);color:var(--out-text);}
+  .zone-box.na{display:block;border-color:var(--line);background:var(--surface-2);color:var(--text-soft);}
+  .rec .zchip{display:inline-block;margin-top:7px;font-family:var(--ui);font-size:10px;font-weight:700;letter-spacing:0.3px;padding:2px 7px;border-radius:4px;text-transform:uppercase;}
+  .zchip.in{background:var(--in-bg);color:var(--in-text);border:1px solid var(--in-border);}
+  .zchip.out{background:var(--out-bg);color:var(--out-text);border:1px solid var(--out-border);}
+  .zchip.na{background:var(--surface-2);color:var(--text-soft);border:1px solid var(--line);}
+  /* Site & org cards */
+  .row2{display:flex;gap:10px;margin-bottom:15px;}
+  .row2>div{flex:1;}
+  .site-card{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);margin-bottom:10px;padding:13px;}
+  .site-card .site-nm{font-weight:600;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .site-card .site-meta{font-family:var(--mono);font-size:10px;color:var(--text-soft);margin-top:5px;word-break:break-all;}
+  .site-acts{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;}
+  .site-acts button{font-family:var(--ui);font-size:11.5px;font-weight:600;letter-spacing:0.1px;padding:8px 11px;border-radius:5px;border:1px solid var(--purple);background:none;color:var(--purple);cursor:pointer;transition:.12s;}
+  .site-acts button:hover{background:rgba(154,109,247,0.12);}
+  .site-acts button.del{border-color:var(--danger);color:var(--danger);}
+  .site-acts button.del:hover{background:rgba(194,90,82,0.12);}
+  /* Org / billing */
+  .alert{border-radius:var(--r);padding:12px 14px;font-family:var(--ui);font-size:13px;font-weight:600;margin-bottom:16px;line-height:1.5;border:1px solid;}
+  .alert.full{background:var(--out-bg);border-color:var(--out-border);color:var(--out-text);}
+  .alert.ok{background:var(--in-bg);border-color:var(--in-border);color:var(--in-text);}
+  .slot-row{display:flex;gap:10px;margin-bottom:18px;}
+  .slot{flex:1;border:1px dashed var(--line);border-radius:var(--r);padding:12px;text-align:center;}
+  .slot .slot-l{font-family:var(--ui);font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-soft);margin-bottom:6px;}
+  .slot .slot-n{font-family:var(--ui);font-size:13.5px;font-weight:600;color:var(--text-soft);}
+  .slot.filled{border-style:solid;border-color:var(--in-border);background:var(--in-bg);}
+  .slot.filled .slot-n{color:var(--in-text);}
+  .plan-badge{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;padding:3px 8px;border-radius:4px;}
+  .plan-badge.free{background:var(--in-bg);color:var(--in-text);border:1px solid var(--in-border);}
+  .plan-badge.paid{background:var(--peach-bg);color:var(--peach);border:1px solid var(--peach);}
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(7,5,16,0.8);display:none;align-items:center;justify-content:center;z-index:100;padding:24px;}
+  .modal.show{display:flex;}
+  .modal-card{background:var(--surface);border:1px solid var(--purple);border-radius:12px;padding:24px;width:100%;max-width:330px;box-shadow:0 24px 60px rgba(0,0,0,0.45);}
+  .modal-title{font-weight:700;font-size:18px;color:var(--text);margin-bottom:5px;letter-spacing:-0.2px;}
+  .modal-sub{font-size:13px;color:var(--text-soft);margin-bottom:18px;line-height:1.5;}
+  .modal input{width:100%;padding:14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);color:var(--text);font-family:var(--mono);font-size:20px;letter-spacing:6px;text-align:center;}
+  .modal input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(154,109,247,0.22);}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .modal-actions button{flex:1;padding:13px;border-radius:var(--r);font-family:var(--ui);font-weight:600;font-size:13.5px;cursor:pointer;border:1px solid var(--line);background:none;color:var(--text-soft);transition:.12s;}
+  .modal-actions button:hover{color:var(--text);border-color:var(--lilac);}
+  .modal-actions button.primary{background:var(--purple);border-color:var(--purple);color:var(--on-purple);}
+  .modal-actions button.primary:hover{background:var(--purple-hover);}
+  .modal-hint{font-family:var(--mono);font-size:10px;color:var(--text-soft);text-align:center;margin-top:14px;opacity:.85;}
+  /* Assignment card + position chips */
+  .assign-card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:6px 14px;margin-bottom:15px;}
+  .assign-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+  .assign-row:last-child{border-bottom:none;}
+  .assign-l{font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;color:var(--text-soft);}
+  .assign-v{font-family:var(--ui);font-size:14px;font-weight:600;color:var(--text);text-align:right;}
+  .chip-wrap{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:7px 8px 7px 14px;font-family:var(--ui);font-size:13px;font-weight:500;color:var(--text);}
+  .chip button{border:none;background:var(--surface-2);color:var(--text-soft);width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;transition:.12s;}
+  .chip button:hover{background:var(--danger);color:#fff;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo-mark"></div>
+      <div class="brand-txt">
+        <h1>ClockPoint</h1>
+        <span class="sub">Staff Attendance · Audit Log</span>
+      </div>
+      <div class="head-actions">
+        <button class="lock-btn" id="themeBtn">Light</button>
+        <button class="lock-btn" id="lockBtn">Admin</button>
+      </div>
+    </div>
+    <div class="tabs" id="tabBar">
+      <button class="tab active" data-view="clock">Clock In</button>
+      <button class="tab" data-view="admin">Log</button>
+      <button class="tab" data-view="sites">Sites</button>
+      <button class="tab" data-view="staff">Staff</button>
+      <button class="tab" data-view="orgs" style="display:none;">Orgs</button>
+    </div>
+  </header>
+
+  <!-- CLOCK IN -->
+  <section class="panel active" id="panel-clock">
+    <div class="clockface">
+      <div class="time" id="liveTime">--:--<span class="ss">:--</span></div>
+      <div class="date" id="liveDate">—</div>
+    </div>
+
+    <div class="field">
+      <label class="lab">Staff</label>
+      <select id="fStaff">
+        <option value="">Select your name…</option>
+      </select>
+    </div>
+
+    <div class="assign-card" id="assignCard" style="display:none;">
+      <div class="assign-row"><span class="assign-l">Position</span><span class="assign-v" id="acPos">—</span></div>
+      <div class="assign-row"><span class="assign-l">Assigned site</span><span class="assign-v" id="acSite">—</span></div>
+    </div>
+
+    <div class="field">
+      <label class="lab">GPS Location</label>
+      <button class="capture-btn" id="gpsBtn">⊕ Capture GPS</button>
+      <div class="readout" id="gpsOut"></div>
+      <div class="manual-coords" id="manualCoords">
+        <input type="number" step="any" id="fLat" placeholder="Latitude">
+        <input type="number" step="any" id="fLng" placeholder="Longitude">
+      </div>
+      <div class="sim-row">
+        <button type="button" class="sim-btn" id="simOn">▷ Simulate: on-site</button>
+        <button type="button" class="sim-btn" id="simFar">▷ Simulate: 500m away</button>
+      </div>
+      <div class="zone-box" id="zoneStatus"></div>
+    </div>
+
+    <div class="field">
+      <label class="lab">Photo (selfie)</label>
+      <button class="capture-btn" id="photoBtn">⊙ Take / Choose Photo</button>
+      <input type="file" id="fPhoto" accept="image/*" capture="user" style="display:none;">
+      <img class="photo-prev" id="photoPrev" alt="preview">
+    </div>
+
+    <div class="field">
+      <label class="lab">Action</label>
+      <div class="toggle">
+        <button id="btnIn" class="sel-in">● In</button>
+        <button id="btnOut">○ Out</button>
+      </div>
+    </div>
+
+    <button class="submit" id="submitBtn">Clock In</button>
+    <div class="note">Demo note: this records the time from your device. A live deployment must stamp time on the server so staff cannot fake it, and lock records from edits.</div>
+  </section>
+
+  <!-- ADMIN -->
+  <section class="panel" id="panel-admin">
+    <div class="storage-warn" id="storageWarn"></div>
+    <div class="adminbar">
+      <div class="field">
+        <label class="lab">Log Date</label>
+        <input type="date" id="logDate">
+      </div>
+      <div class="field" style="flex:0;">
+        <label class="lab">&nbsp;</label>
+        <button class="btn-clear" id="todayBtn" style="white-space:nowrap;">Today</button>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat"><div class="n" id="statTotal">0</div><div class="l">Records</div></div>
+      <div class="stat"><div class="n" id="statIn">0</div><div class="l">Clock-In</div></div>
+      <div class="stat"><div class="n" id="statOut">0</div><div class="l">Clock-Out</div></div>
+    </div>
+    <div class="readout" id="flaggedLine" style="margin:-6px 0 14px;font-weight:700;"></div>
+
+    <button class="btn-export" id="exportBtn">⤓ Download Excel — This Day</button>
+    <button class="btn-export" id="exportAllBtn" style="background:var(--surface-2);color:var(--text);box-shadow:4px 4px 0 var(--purple-deep);">⤓ Download Excel — All Records</button>
+
+    <div id="logList" style="margin-top:14px;"></div>
+
+    <button class="btn-clear" id="clearBtn" style="margin-top:8px;border:2px solid var(--danger);color:var(--danger);">⨯ Clear All Demo Records</button>
+    <div class="note">In production this dashboard sits behind a login. You'd add more admins, filter by site or staff, and the export would pull from a secured database — photos and GPS stored as tamper-evident proof.</div>
+  </section>
+
+  <!-- SITES -->
+  <section class="panel" id="panel-sites">
+    <div class="site-form">
+      <div class="field">
+        <label class="lab">Site Name</label>
+        <input type="text" id="sName" placeholder="e.g. Victoria Island Branch" autocomplete="off">
+      </div>
+      <div class="row2">
+        <div>
+          <label class="lab">Latitude</label>
+          <input type="number" step="any" id="sLat" placeholder="6.4281">
+        </div>
+        <div>
+          <label class="lab">Longitude</label>
+          <input type="number" step="any" id="sLng" placeholder="3.4219">
+        </div>
+      </div>
+      <div class="row2">
+        <div>
+          <label class="lab">Radius (m)</label>
+          <input type="number" id="sRad" placeholder="100">
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end;">
+          <button type="button" class="capture-btn" id="sUseLoc">⊕ Use my location</button>
+        </div>
+      </div>
+      <button class="submit" id="sSave">Add Site</button>
+      <button class="btn-clear" id="sCancel" style="margin-top:8px;display:none;">Cancel edit</button>
+    </div>
+    <div class="lab" style="margin:22px 0 10px;">Defined Sites</div>
+    <div id="sitesList"></div>
+    <div class="note">Sites are shared across everyone using this demo. In production only admins could edit them, and the geofence check would run on the server using these definitions.</div>
+  </section>
+
+  <!-- STAFF + POSITIONS (admin) -->
+  <section class="panel" id="panel-staff">
+    <div class="lab" style="margin:2px 0 10px;">Positions</div>
+    <div class="row2" style="margin-bottom:12px;align-items:stretch;">
+      <div><input type="text" id="posName" placeholder="Add a position" autocomplete="off"></div>
+      <div style="flex:0;"><button class="submit" id="posAdd" style="margin:0;height:100%;padding:0 20px;white-space:nowrap;">Add</button></div>
+    </div>
+    <div id="posList" class="chip-wrap"></div>
+
+    <div class="lab" style="margin:26px 0 10px;">Staff roster</div>
+    <div class="field">
+      <input type="text" id="stName" placeholder="Staff full name" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div>
+        <label class="lab">Position</label>
+        <select id="stPos"></select>
+      </div>
+      <div>
+        <label class="lab">Assigned site</label>
+        <select id="stSite"></select>
+      </div>
+    </div>
+    <button class="submit" id="stSave">Add Staff</button>
+    <button class="btn-clear" id="stCancel" style="margin-top:8px;display:none;">Cancel edit</button>
+
+    <div class="lab" style="margin:22px 0 10px;">Current staff</div>
+    <div id="staffList"></div>
+    <div class="note">Each staff member is tied to a position and an assigned site. On the Clock In page they pick their name and their site is locked to this assignment — so they can't clock in anywhere else. To handle a move, edit the staff member and change their assigned site.</div>
+  </section>
+
+  <!-- ORGANIZATIONS (super admin) -->
+  <section class="panel" id="panel-orgs">
+    <div id="slotsAlert"></div>
+    <div class="slot-row" id="slotRow"></div>
+    <div class="lab" style="margin:4px 0 10px;">Add Organization</div>
+    <div class="field">
+      <input type="text" id="oName" placeholder="Organization name" autocomplete="off">
+    </div>
+    <div class="row2">
+      <div>
+        <label class="lab">Plan</label>
+        <select id="oPlan">
+          <option value="free">Free</option>
+          <option value="paid">Paid</option>
+        </select>
+      </div>
+      <div style="display:flex;flex-direction:column;justify-content:flex-end;">
+        <button class="submit" id="oAdd" style="margin:0;">Add</button>
+      </div>
+    </div>
+    <div class="lab" style="margin:22px 0 10px;">Organizations</div>
+    <div id="orgsList"></div>
+    <div class="note">Two free organization slots are included. Once both are taken, new organizations must be on a paid plan — but you can switch any organization between free and paid at any time, and moving one to paid frees a slot. Paid plans can enable API access. In production, billing, API keys, and a "free slots full" notification to you are handled on the server.</div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="pinModal">
+  <div class="modal-card">
+    <div class="modal-title">Admin access</div>
+    <div class="modal-sub">Enter an admin PIN. Organization admins manage their own staff and sites; the super admin also manages organizations and billing. Staff don't need this.</div>
+    <input type="password" id="pinInput" inputmode="numeric" maxlength="8" placeholder="••••">
+    <div class="modal-actions">
+      <button id="pinCancel">Cancel</button>
+      <button id="pinOk" class="primary">Unlock</button>
+    </div>
+    <div class="modal-hint">Demo PINs — Admin 1234 · Super admin 0000</div>
+  </div>
+</div>
+
+<script>
+const KEY_PREFIX = 'clockin:';
+let useStorage = (typeof window !== 'undefined' && window.storage && typeof window.storage.set === 'function');
+let memRecords = []; // fallback
+let state = { photo:null, lat:null, lng:null, acc:null, type:'IN', staffId:null, name:null, position:null, siteId:null, siteName:null, zone:'NA', distance:null };
+
+/* ---------- geofenced sites (admin-defined; lat, lng, radius in metres) ---------- */
+const SITES_KEY='sites:list';
+const DEFAULT_SITES=[
+  {id:'apapa', name:'Apapa Warehouse',  lat:6.449800, lng:3.359600, radius:100},
+  {id:'ikeja', name:'Ikeja Head Office', lat:6.601800, lng:3.351500, radius:120},
+  {id:'lekki', name:'Lekki Field Base',  lat:6.469800, lng:3.585200, radius:150},
+];
+let SITES=[];
+function getSite(id){ return SITES.find(s=>s.id===id); }
+async function loadSites(){
+  if(useStorage){
+    try{ const r=await window.storage.get(SITES_KEY,true); if(r&&r.value){ SITES=JSON.parse(r.value); return; } }catch(e){}
+    SITES=DEFAULT_SITES.slice();
+    try{ await window.storage.set(SITES_KEY, JSON.stringify(SITES), true); }catch(e){ useStorage=false; }
+    return;
+  }
+  SITES=DEFAULT_SITES.slice();
+}
+async function saveSites(){
+  if(useStorage){ try{ await window.storage.set(SITES_KEY, JSON.stringify(SITES), true); return; }catch(e){ useStorage=false; } }
+}
+function distMeters(lat1,lng1,lat2,lng2){
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const dLat=rad(lat2-lat1), dLng=rad(lng2-lng1);
+  const a=Math.sin(dLat/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+function evalGeofence(){
+  const site=getSite(state.siteId);
+  if(!site) return {siteId:state.siteId, siteName:state.siteName||'—', distance:null, zone:'NA'};
+  if(state.lat===null||state.lng===null) return {siteId:site.id, siteName:site.name, distance:null, zone:'NA'};
+  const d=Math.round(distMeters(state.lat,state.lng,site.lat,site.lng));
+  return {siteId:site.id, siteName:site.name, distance:d, zone:d<=site.radius?'IN':'OUT'};
+}
+function updateZone(){
+  const box=document.getElementById('zoneStatus');
+  const gf=evalGeofence();
+  state.zone=gf.zone; state.distance=gf.distance;
+  box.className='zone-box';
+  if(!state.siteId){ box.style.display='none'; return; }
+  if(!getSite(state.siteId)){ box.classList.add('na'); box.textContent='No geofence applied to this site.'; return; }
+  if(gf.zone==='NA'){ box.classList.add('na'); box.textContent='Capture GPS to check the zone.'; }
+  else if(gf.zone==='IN'){ box.classList.add('in'); box.textContent=`✓ WITHIN ${gf.siteName} — ${gf.distance} m from centre.`; }
+  else { box.classList.add('out'); box.textContent=`⚠ OUTSIDE ZONE — ${gf.distance} m from ${gf.siteName}. This clock-in will be flagged.`; }
+}
+function populateStaffPicker(){
+  const sel=document.getElementById('fStaff');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Select your name…</option>';
+  STAFF.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+  if(cur && STAFF.find(s=>s.id===cur)) sel.value=cur;
+}
+function populatePositionSelect(){
+  const sel=document.getElementById('stPos');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Select position…</option>';
+  POSITIONS.forEach(p=>{ const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o); });
+  if(cur && POSITIONS.includes(cur)) sel.value=cur;
+}
+function populateSiteSelect(){
+  const sel=document.getElementById('stSite');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Select site…</option>';
+  SITES.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; sel.appendChild(o); });
+  if(cur && getSite(cur)) sel.value=cur;
+}
+document.getElementById('fStaff').addEventListener('change',e=>{
+  const st=STAFF.find(s=>s.id===e.target.value);
+  const card=document.getElementById('assignCard');
+  if(!st){ state.staffId=null; state.name=null; state.position=null; state.siteId=null; state.siteName=null; card.style.display='none'; updateZone(); return; }
+  const site=getSite(st.siteId);
+  state.staffId=st.id; state.name=st.name; state.position=st.position;
+  state.siteId=st.siteId; state.siteName=site?site.name:'(assigned site removed)';
+  document.getElementById('acPos').textContent=st.position;
+  document.getElementById('acSite').textContent=site?`${site.name} · ${site.radius} m radius`:'⚠ assigned site no longer exists';
+  card.style.display='block';
+  updateZone();
+});
+document.getElementById('simOn').addEventListener('click',()=>simulate(true));
+document.getElementById('simFar').addEventListener('click',()=>simulate(false));
+function simulate(onsite){
+  const s=getSite(state.siteId);
+  if(!s){ toast('⚠ Select your name first'); return; }
+  let lat=s.lat, lng=s.lng;
+  if(!onsite){ lat=s.lat+0.0045; lng=s.lng+0.0045; } // ~700 m away
+  state.lat=+lat.toFixed(6); state.lng=+lng.toFixed(6); state.acc=onsite?8:11;
+  const la=document.getElementById('fLat'), ln=document.getElementById('fLng');
+  la.value=state.lat; ln.value=state.lng;
+  document.getElementById('manualCoords').style.display='flex';
+  document.getElementById('gpsOut').innerHTML=`<b>LAT</b> ${state.lat} &nbsp; <b>LNG</b> ${state.lng}<br><b>± ${state.acc} m</b> accuracy (simulated)`;
+  const gb=document.getElementById('gpsBtn'); gb.classList.add('done'); gb.textContent='✓ GPS Captured (sim)';
+  updateZone();
+}
+
+/* ---------- live clock ---------- */
+function tick(){
+  const d = new Date();
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('liveTime').innerHTML =
+    `${p(d.getHours())}:${p(d.getMinutes())}<span class="ss">:${p(d.getSeconds())}</span>`;
+  document.getElementById('liveDate').textContent =
+    d.toLocaleDateString(undefined,{weekday:'short',day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+}
+setInterval(tick,1000); tick();
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ---------- tabs ---------- */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>showView(tab.dataset.view));
+});
+
+/* ---------- In/Out ---------- */
+document.getElementById('btnIn').addEventListener('click',()=>setType('IN'));
+document.getElementById('btnOut').addEventListener('click',()=>setType('OUT'));
+function setType(t){
+  state.type=t;
+  const i=document.getElementById('btnIn'), o=document.getElementById('btnOut');
+  i.className = t==='IN'?'sel-in':''; i.textContent = t==='IN'?'● In':'○ In';
+  o.className = t==='OUT'?'sel-out':''; o.textContent = t==='OUT'?'● Out':'○ Out';
+  document.getElementById('submitBtn').textContent = t==='IN'?'Clock In':'Clock Out';
+}
+
+/* ---------- GPS ---------- */
+document.getElementById('gpsBtn').addEventListener('click',()=>{
+  const out=document.getElementById('gpsOut'); const btn=document.getElementById('gpsBtn');
+  if(!navigator.geolocation){ showManual('Geolocation not supported — enter coordinates manually.'); return; }
+  out.textContent='Locating…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      state.lat=+pos.coords.latitude.toFixed(6);
+      state.lng=+pos.coords.longitude.toFixed(6);
+      state.acc=Math.round(pos.coords.accuracy);
+      out.innerHTML=`<b>LAT</b> ${state.lat} &nbsp; <b>LNG</b> ${state.lng}<br><b>± ${state.acc} m</b> accuracy`;
+      btn.classList.add('done'); btn.textContent='✓ GPS Captured'; updateZone();
+    },
+    err=>{ showManual('GPS unavailable here ('+err.message+'). Enter coordinates manually below.'); },
+    {enableHighAccuracy:true,timeout:10000}
+  );
+});
+function showManual(msg){
+  document.getElementById('gpsOut').textContent=msg;
+  document.getElementById('manualCoords').style.display='flex';
+}
+document.getElementById('fLat').addEventListener('input',e=>{state.lat=e.target.value?+e.target.value:null; updateZone();});
+document.getElementById('fLng').addEventListener('input',e=>{state.lng=e.target.value?+e.target.value:null; updateZone();});
+
+/* ---------- Photo ---------- */
+document.getElementById('photoBtn').addEventListener('click',()=>document.getElementById('fPhoto').click());
+document.getElementById('fPhoto').addEventListener('change',e=>{
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=360; let{width,height}=img;
+      if(width>height){ if(width>max){height=height*max/width;width=max;} }
+      else { if(height>max){width=width*max/height;height=max;} }
+      const c=document.createElement('canvas'); c.width=width;c.height=height;
+      c.getContext('2d').drawImage(img,0,0,width,height);
+      state.photo=c.toDataURL('image/jpeg',0.6);
+      const prev=document.getElementById('photoPrev'); prev.src=state.photo; prev.style.display='block';
+      const b=document.getElementById('photoBtn'); b.classList.add('done'); b.textContent='✓ Photo Captured';
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------- Submit ---------- */
+document.getElementById('submitBtn').addEventListener('click',async()=>{
+  if(!state.staffId){ toast('⚠ Select your name'); return; }
+  if(state.lat===null||state.lng===null){ toast('⚠ Capture or enter GPS'); return; }
+  if(!state.photo){ toast('⚠ Photo is required'); return; }
+
+  const gf=evalGeofence();
+  const rec={
+    id:'CP-'+Date.now().toString(36).toUpperCase(),
+    ts:Date.now(),
+    staffId:state.staffId, name:state.name, position:state.position, site:gf.siteName,
+    type:state.type, lat:state.lat, lng:state.lng, acc:state.acc,
+    zone:gf.zone, distance:gf.distance,
+    photo:state.photo
+  };
+  await saveRecord(rec);
+  toast('✓ '+(state.type==='IN'?'Clocked in':'Clocked out')+' — '+state.name);
+  resetForm();
+});
+
+function resetForm(){
+  document.getElementById('fStaff').value='';
+  document.getElementById('assignCard').style.display='none';
+  document.getElementById('zoneStatus').className='zone-box';
+  document.getElementById('zoneStatus').style.display='none';
+  document.getElementById('fLat').value=''; document.getElementById('fLng').value='';
+  document.getElementById('manualCoords').style.display='none';
+  document.getElementById('gpsOut').textContent='';
+  const gb=document.getElementById('gpsBtn'); gb.classList.remove('done'); gb.textContent='⊕ Capture GPS';
+  const pb=document.getElementById('photoBtn'); pb.classList.remove('done'); pb.textContent='⊙ Take / Choose Photo';
+  document.getElementById('photoPrev').style.display='none';
+  state={photo:null,lat:null,lng:null,acc:null,type:state.type,staffId:null,name:null,position:null,siteId:null,siteName:null,zone:'NA',distance:null};
+}
+
+/* ---------- Storage ---------- */
+async function saveRecord(rec){
+  if(useStorage){
+    try{ await window.storage.set(KEY_PREFIX+rec.id, JSON.stringify(rec), true); return; }
+    catch(e){ useStorage=false; }
+  }
+  memRecords.push(rec);
+}
+async function loadRecords(){
+  if(useStorage){
+    try{
+      const res=await window.storage.list(KEY_PREFIX,true);
+      const keys=(res&&res.keys)||[];
+      const recs=[];
+      for(const k of keys){
+        try{ const r=await window.storage.get(k,true); if(r&&r.value) recs.push(JSON.parse(r.value)); }catch(e){}
+      }
+      return recs.sort((a,b)=>b.ts-a.ts);
+    }catch(e){ useStorage=false; }
+  }
+  return [...memRecords].sort((a,b)=>b.ts-a.ts);
+}
+async function clearAll(){
+  if(useStorage){
+    try{
+      const res=await window.storage.list(KEY_PREFIX,true);
+      for(const k of (res.keys||[])) await window.storage.delete(k,true);
+    }catch(e){}
+  }
+  memRecords=[];
+}
+
+/* ---------- Admin log ---------- */
+function sameDay(ts,dateStr){
+  const d=new Date(ts); const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`===dateStr;
+}
+function fmtTime(ts){ const d=new Date(ts); const p=n=>String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+
+async function renderLog(){
+  const warn=document.getElementById('storageWarn');
+  if(!useStorage){ warn.style.display='block'; warn.textContent='⚠ Shared demo storage is unavailable, so records are kept only for this session. Deployed, this uses a real database.'; }
+  else warn.style.display='none';
+
+  const dateStr=document.getElementById('logDate').value;
+  const all=await loadRecords();
+  const list=dateStr?all.filter(r=>sameDay(r.ts,dateStr)):all;
+
+  document.getElementById('statTotal').textContent=list.length;
+  document.getElementById('statIn').textContent=list.filter(r=>r.type==='IN').length;
+  document.getElementById('statOut').textContent=list.filter(r=>r.type==='OUT').length;
+
+  const flagged=list.filter(r=>r.zone==='OUT').length;
+  const fl=document.getElementById('flaggedLine');
+  fl.textContent = flagged ? `⚠ ${flagged} clock-in(s) outside assigned zone — review` : (list.length?'✓ All clock-ins within assigned zones':'');
+  fl.style.color = flagged ? 'var(--danger)' : 'var(--army)';
+
+  const box=document.getElementById('logList');
+  if(!list.length){ box.innerHTML='<div class="empty">No records for this day</div>'; return; }
+  box.innerHTML=list.map(r=>{
+    const z=r.zone||'NA';
+    const zc = z==='IN'  ? `<span class="zchip in">In zone · ${r.distance}m</span>`
+             : z==='OUT' ? `<span class="zchip out">Out of zone · ${r.distance}m</span>`
+             :             `<span class="zchip na">No geofence</span>`;
+    return `
+    <div class="rec">
+      ${r.photo?`<div class="pic"><img src="${r.photo}" alt=""></div>`:'<div class="pic noimg">NO<br>PHOTO</div>'}
+      <div class="body">
+        <div class="top">
+          <span class="nm">${esc(r.name)}</span>
+          <span class="badge ${r.type==='IN'?'in':'out'}">${r.type}</span>
+        </div>
+        <div class="pos">${esc(r.position)} · ${esc(r.site)}</div>
+        ${zc}
+        <div class="meta">
+          <span class="t">${fmtTime(r.ts)}</span> &nbsp;|&nbsp; ${r.id}<br>
+          ${r.lat}, ${r.lng} ${r.acc?`(±${r.acc}m)`:''}
+        </div>
+      </div>
+    </div>`;}).join('');
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+document.getElementById('logDate').addEventListener('change',renderLog);
+document.getElementById('todayBtn').addEventListener('click',()=>{ setToday(); renderLog(); });
+function setToday(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); document.getElementById('logDate').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+setToday();
+
+document.getElementById('clearBtn').addEventListener('click',async()=>{
+  if(confirm('Delete ALL demo records? This cannot be undone.')){ await clearAll(); renderLog(); toast('All records cleared'); }
+});
+
+/* ---------- Excel export ---------- */
+async function doExport(scopeToday){
+  const all=await loadRecords();
+  const dateStr=document.getElementById('logDate').value;
+  const rows=(scopeToday?all.filter(r=>sameDay(r.ts,dateStr)):all);
+  if(!rows.length){ toast('⚠ Nothing to export'); return; }
+  const data=rows.map(r=>{
+    const d=new Date(r.ts);
+    return {
+      'Record ID':r.id,
+      'Date':d.toLocaleDateString(),
+      'Time':fmtTime(r.ts),
+      'Name':r.name,
+      'Position':r.position,
+      'Action':r.type==='IN'?'Clock In':'Clock Out',
+      'Site':r.site,
+      'Distance to centre (m)':(r.distance!=null?r.distance:''),
+      'Zone':(r.zone==='IN'?'In zone':r.zone==='OUT'?'OUT OF ZONE':'No geofence'),
+      'Latitude':r.lat,
+      'Longitude':r.lng,
+      'GPS Accuracy (m)':r.acc||'',
+      'Map Link':`https://maps.google.com/?q=${r.lat},${r.lng}`,
+      'Photo on file':r.photo?'Yes':'No'
+    };
+  });
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:14},{wch:12},{wch:10},{wch:20},{wch:18},{wch:11},{wch:18},{wch:18},{wch:13},{wch:12},{wch:12},{wch:14},{wch:34},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Attendance Log');
+  const fname=`attendance_${scopeToday?dateStr:'all'}.xlsx`;
+  XLSX.writeFile(wb,fname);
+  toast('⤓ Exported '+rows.length+' records');
+}
+document.getElementById('exportBtn').addEventListener('click',()=>doExport(true));
+document.getElementById('exportAllBtn').addEventListener('click',()=>doExport(false));
+
+/* ---------- Site management (admin) ---------- */
+let editingId=null;
+function slug(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,24)||'site'; }
+function renderSites(){
+  const box=document.getElementById('sitesList');
+  if(!SITES.length){ box.innerHTML='<div class="empty">No sites defined yet</div>'; return; }
+  box.innerHTML=SITES.map(s=>`
+    <div class="site-card">
+      <div class="site-info">
+        <div class="site-nm">${esc(s.name)}</div>
+        <div class="site-meta">${s.lat}, ${s.lng} · radius ${s.radius} m</div>
+      </div>
+      <div class="site-acts">
+        <button data-act="edit" data-id="${s.id}">Edit</button>
+        <button data-act="del" data-id="${s.id}" class="del">Delete</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('sitesList').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.act==='edit') startEdit(b.dataset.id);
+  else if(b.dataset.act==='del') delSite(b.dataset.id);
+});
+function startEdit(id){
+  const s=getSite(id); if(!s) return;
+  editingId=id;
+  document.getElementById('sName').value=s.name;
+  document.getElementById('sLat').value=s.lat;
+  document.getElementById('sLng').value=s.lng;
+  document.getElementById('sRad').value=s.radius;
+  document.getElementById('sSave').textContent='Update Site';
+  document.getElementById('sCancel').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelEdit(){
+  editingId=null;
+  ['sName','sLat','sLng','sRad'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('sSave').textContent='Add Site';
+  document.getElementById('sCancel').style.display='none';
+}
+document.getElementById('sCancel').addEventListener('click',cancelEdit);
+async function delSite(id){
+  const s=getSite(id); if(!s) return;
+  if(!confirm('Delete site "'+s.name+'"?')) return;
+  SITES=SITES.filter(x=>x.id!==id);
+  await saveSites(); renderSites(); populateSiteSelect();
+  toast('Site deleted');
+}
+document.getElementById('sSave').addEventListener('click',async()=>{
+  const name=document.getElementById('sName').value.trim();
+  const lat=parseFloat(document.getElementById('sLat').value);
+  const lng=parseFloat(document.getElementById('sLng').value);
+  const rad=parseInt(document.getElementById('sRad').value,10);
+  if(!name){ toast('⚠ Enter a site name'); return; }
+  if(isNaN(lat)||isNaN(lng)){ toast('⚠ Enter valid coordinates'); return; }
+  if(isNaN(rad)||rad<=0){ toast('⚠ Enter a radius in metres'); return; }
+  if(editingId){
+    const s=getSite(editingId); s.name=name; s.lat=+lat.toFixed(6); s.lng=+lng.toFixed(6); s.radius=rad;
+    toast('Site updated');
+  } else {
+    let id=slug(name); while(getSite(id)) id+='-'+Math.floor(Math.random()*99);
+    SITES.push({id, name, lat:+lat.toFixed(6), lng:+lng.toFixed(6), radius:rad});
+    toast('Site added');
+  }
+  await saveSites(); renderSites(); populateSiteSelect(); cancelEdit();
+});
+document.getElementById('sUseLoc').addEventListener('click',()=>{
+  if(!navigator.geolocation){ toast('⚠ Geolocation unavailable — type coordinates'); return; }
+  toast('Locating…');
+  navigator.geolocation.getCurrentPosition(
+    p=>{ document.getElementById('sLat').value=+p.coords.latitude.toFixed(6); document.getElementById('sLng').value=+p.coords.longitude.toFixed(6); toast('✓ Location filled'); },
+    err=>toast('⚠ '+err.message),
+    {enableHighAccuracy:true,timeout:10000}
+  );
+});
+
+/* ---------- Positions & staff roster (admin) ---------- */
+const POS_KEY='positions:list';
+const DEFAULT_POSITIONS=['Security','Warehouse Manager','Field Officer','Supervisor','Driver','Cleaner'];
+let POSITIONS=[];
+const STAFF_KEY='staff:list';
+const DEFAULT_STAFF=[
+  {id:'s-ada',   name:'Adaeze Okoro', position:'Warehouse Manager', siteId:'apapa'},
+  {id:'s-emeka', name:'Emeka Obi',     position:'Security',          siteId:'apapa'},
+  {id:'s-bisi',  name:'Bisi Lawal',    position:'Field Officer',     siteId:'lekki'},
+];
+let STAFF=[];
+async function loadList(key, fallback, target){
+  if(useStorage){
+    try{ const r=await window.storage.get(key,true); if(r&&r.value) return JSON.parse(r.value); }catch(e){}
+    try{ await window.storage.set(key, JSON.stringify(fallback), true); }catch(e){ useStorage=false; }
+  }
+  return fallback.slice();
+}
+async function loadPositions(){ POSITIONS=await loadList(POS_KEY, DEFAULT_POSITIONS, POSITIONS); }
+async function savePositions(){ if(useStorage){ try{ await window.storage.set(POS_KEY, JSON.stringify(POSITIONS), true); }catch(e){ useStorage=false; } } }
+async function loadStaff(){ STAFF=await loadList(STAFF_KEY, DEFAULT_STAFF, STAFF); }
+async function saveStaff(){ if(useStorage){ try{ await window.storage.set(STAFF_KEY, JSON.stringify(STAFF), true); }catch(e){ useStorage=false; } } }
+
+function renderPositions(){
+  const box=document.getElementById('posList');
+  if(!POSITIONS.length){ box.innerHTML='<div class="empty">No positions yet</div>'; return; }
+  box.innerHTML=POSITIONS.map(p=>`<span class="chip">${esc(p)} <button data-pos="${esc(p)}" title="Remove">✕</button></span>`).join('');
+}
+document.getElementById('posList').addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const p=b.dataset.pos;
+  if(!confirm('Remove position "'+p+'"? Existing staff keep their saved position.')) return;
+  POSITIONS=POSITIONS.filter(x=>x!==p);
+  await savePositions(); renderPositions(); populatePositionSelect();
+  toast('Position removed');
+});
+document.getElementById('posAdd').addEventListener('click',async()=>{
+  const v=document.getElementById('posName').value.trim();
+  if(!v){ toast('⚠ Enter a position'); return; }
+  if(POSITIONS.some(p=>p.toLowerCase()===v.toLowerCase())){ toast('⚠ Already exists'); return; }
+  POSITIONS.push(v);
+  await savePositions(); renderPositions(); populatePositionSelect();
+  document.getElementById('posName').value='';
+  toast('✓ Position added');
+});
+
+let editingStaffId=null;
+function renderStaff(){
+  const box=document.getElementById('staffList');
+  if(!STAFF.length){ box.innerHTML='<div class="empty">No staff yet</div>'; return; }
+  box.innerHTML=STAFF.map(s=>{
+    const site=getSite(s.siteId);
+    const siteLabel=site?esc(site.name):'⚠ site removed';
+    return `
+    <div class="site-card">
+      <div class="site-info" style="min-width:0;">
+        <div class="site-nm">${esc(s.name)}</div>
+        <div class="site-meta">${esc(s.position)} · ${siteLabel}</div>
+      </div>
+      <div class="site-acts">
+        <button data-act="edit" data-id="${s.id}">Edit</button>
+        <button data-act="del" data-id="${s.id}" class="del">Delete</button>
+      </div>
+    </div>`;}).join('');
+}
+document.getElementById('staffList').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.act==='edit') startStaffEdit(b.dataset.id);
+  else if(b.dataset.act==='del') delStaff(b.dataset.id);
+});
+function startStaffEdit(id){
+  const s=STAFF.find(x=>x.id===id); if(!s) return;
+  editingStaffId=id;
+  document.getElementById('stName').value=s.name;
+  populatePositionSelect(); document.getElementById('stPos').value=s.position;
+  populateSiteSelect(); document.getElementById('stSite').value=s.siteId;
+  document.getElementById('stSave').textContent='Update Staff';
+  document.getElementById('stCancel').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelStaffEdit(){
+  editingStaffId=null;
+  document.getElementById('stName').value='';
+  document.getElementById('stPos').value='';
+  document.getElementById('stSite').value='';
+  document.getElementById('stSave').textContent='Add Staff';
+  document.getElementById('stCancel').style.display='none';
+}
+document.getElementById('stCancel').addEventListener('click',cancelStaffEdit);
+async function delStaff(id){
+  const s=STAFF.find(x=>x.id===id); if(!s) return;
+  if(!confirm('Delete staff "'+s.name+'"?')) return;
+  STAFF=STAFF.filter(x=>x.id!==id);
+  await saveStaff(); renderStaff(); populateStaffPicker();
+  toast('Staff deleted');
+}
+document.getElementById('stSave').addEventListener('click',async()=>{
+  const name=document.getElementById('stName').value.trim();
+  const position=document.getElementById('stPos').value;
+  const siteId=document.getElementById('stSite').value;
+  if(!name){ toast('⚠ Enter staff name'); return; }
+  if(!position){ toast('⚠ Select a position'); return; }
+  if(!siteId){ toast('⚠ Assign a site'); return; }
+  if(editingStaffId){
+    const s=STAFF.find(x=>x.id===editingStaffId); s.name=name; s.position=position; s.siteId=siteId;
+    toast('Staff updated');
+  } else {
+    let id=slug(name); while(STAFF.find(x=>x.id===id)) id+='-'+Math.floor(Math.random()*99);
+    STAFF.push({id, name, position, siteId});
+    toast('✓ Staff added');
+  }
+  await saveStaff(); renderStaff(); populateStaffPicker(); cancelStaffEdit();
+});
+
+/* ---------- Theme (light / dark) ---------- */
+const THEME_KEY='theme';
+let theme='dark';
+const themeBtn=document.getElementById('themeBtn');
+function applyTheme(t){ theme=t; document.documentElement.setAttribute('data-theme',t); themeBtn.textContent=(t==='dark')?'Light':'Dark'; }
+themeBtn.addEventListener('click',async()=>{
+  applyTheme(theme==='dark'?'light':'dark');
+  if(useStorage){ try{ await window.storage.set(THEME_KEY, theme, false); }catch(e){} }
+});
+async function loadTheme(){
+  if(useStorage){ try{ const r=await window.storage.get(THEME_KEY,false); if(r&&r.value){ applyTheme(r.value); return; } }catch(e){} }
+  applyTheme('dark');
+}
+
+/* ---------- Organizations (super admin · multi-tenant demo) ---------- */
+const ORGS_KEY='orgs:list';
+const FREE_LIMIT=2;
+const DEFAULT_ORGS=[{id:'acme', name:'Acme Security Ltd', plan:'free', api:false}];
+let ORGS=[];
+async function loadOrgs(){
+  if(useStorage){
+    try{ const r=await window.storage.get(ORGS_KEY,true); if(r&&r.value){ ORGS=JSON.parse(r.value); return; } }catch(e){}
+    ORGS=DEFAULT_ORGS.slice();
+    try{ await window.storage.set(ORGS_KEY, JSON.stringify(ORGS), true); }catch(e){ useStorage=false; }
+    return;
+  }
+  ORGS=DEFAULT_ORGS.slice();
+}
+async function saveOrgs(){ if(useStorage){ try{ await window.storage.set(ORGS_KEY, JSON.stringify(ORGS), true); return; }catch(e){ useStorage=false; } } }
+function freeUsed(){ return ORGS.filter(o=>o.plan==='free').length; }
+function renderOrgs(){
+  const used=freeUsed(), full=used>=FREE_LIMIT;
+  document.getElementById('slotsAlert').innerHTML = full
+    ? `<div class="alert full">⚠ Both free slots are in use (${used} of ${FREE_LIMIT}). New organizations must be on a paid plan.</div>`
+    : `<div class="alert ok">${used} of ${FREE_LIMIT} free slots used · ${FREE_LIMIT-used} available.</div>`;
+  const freeOrgs=ORGS.filter(o=>o.plan==='free');
+  let slots='';
+  for(let i=0;i<FREE_LIMIT;i++){ const o=freeOrgs[i];
+    slots += o
+      ? `<div class="slot filled"><div class="slot-l">Free slot ${i+1}</div><div class="slot-n">${esc(o.name)}</div></div>`
+      : `<div class="slot empty"><div class="slot-l">Free slot ${i+1}</div><div class="slot-n">Empty</div></div>`;
+  }
+  document.getElementById('slotRow').innerHTML=slots;
+  const freeOpt=document.querySelector('#oPlan option[value="free"]');
+  if(freeOpt){ freeOpt.disabled=full; if(full && document.getElementById('oPlan').value==='free') document.getElementById('oPlan').value='paid'; }
+  const box=document.getElementById('orgsList');
+  if(!ORGS.length){ box.innerHTML='<div class="empty">No organizations yet</div>'; return; }
+  box.innerHTML=ORGS.map(o=>`
+    <div class="site-card">
+      <div class="site-info" style="min-width:0;">
+        <div class="site-nm">${esc(o.name)} <span class="plan-badge ${o.plan}">${o.plan}</span></div>
+        <div class="site-meta">${o.plan==='paid' ? (o.api?'API integration enabled':'API integration off') : 'Occupying a free slot'}</div>
+      </div>
+      <div class="site-acts">
+        ${o.plan==='free'
+          ? `<button data-act="paid" data-id="${o.id}">→ Paid</button>`
+          : `<button data-act="free" data-id="${o.id}">→ Free</button><button data-act="api" data-id="${o.id}">${o.api?'API off':'API on'}</button>`}
+        <button data-act="del" data-id="${o.id}" class="del">Remove</button>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('orgsList').addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const o=ORGS.find(x=>x.id===b.dataset.id); if(!o) return;
+  const act=b.dataset.act;
+  if(act==='paid'){ o.plan='paid'; toast(o.name+' moved to Paid — slot freed'); }
+  else if(act==='free'){ if(freeUsed()>=FREE_LIMIT){ toast('⚠ No free slots available'); return; } o.plan='free'; o.api=false; toast(o.name+' moved to Free'); }
+  else if(act==='api'){ o.api=!o.api; toast('API '+(o.api?'enabled':'disabled')+' · '+o.name); }
+  else if(act==='del'){ if(!confirm('Remove "'+o.name+'"?')) return; ORGS=ORGS.filter(x=>x.id!==o.id); toast('Organization removed'); }
+  await saveOrgs(); renderOrgs();
+});
+document.getElementById('oAdd').addEventListener('click',async()=>{
+  const name=document.getElementById('oName').value.trim();
+  let plan=document.getElementById('oPlan').value;
+  if(!name){ toast('⚠ Enter organization name'); return; }
+  if(plan==='free' && freeUsed()>=FREE_LIMIT){ plan='paid'; toast('Free slots full — added as Paid'); }
+  let id=slug(name); while(ORGS.find(o=>o.id===id)) id+='-'+Math.floor(Math.random()*99);
+  ORGS.push({id,name,plan,api:false});
+  await saveOrgs(); renderOrgs();
+  document.getElementById('oName').value='';
+  if(plan==='free' && freeUsed()>=FREE_LIMIT) toast('⚠ Free slots are now full');
+  else if(plan==='free') toast('✓ '+name+' added to a free slot');
+  else toast('✓ '+name+' added (Paid)');
+});
+
+/* ---------- Access gate (demo PINs; real auth lives on the server) ---------- */
+const ORG_PIN='1234', SUPER_PIN='0000';
+let role='staff';
+const tabBar=document.getElementById('tabBar');
+const lockBtn=document.getElementById('lockBtn');
+const pinModal=document.getElementById('pinModal');
+function showView(view){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+view));
+  if(view==='admin') renderLog();
+  else if(view==='sites') renderSites();
+  else if(view==='staff'){ populatePositionSelect(); populateSiteSelect(); renderPositions(); renderStaff(); }
+  else if(view==='orgs') renderOrgs();
+  else if(view==='clock') populateStaffPicker();
+}
+function applyRole(r){
+  role=r;
+  const isAdmin=(r==='org'||r==='super');
+  tabBar.style.display=isAdmin?'flex':'none';
+  const orgsTab=document.querySelector('.tab[data-view="orgs"]');
+  if(orgsTab) orgsTab.style.display=(r==='super')?'':'none';
+  lockBtn.classList.toggle('on',isAdmin);
+  lockBtn.textContent=isAdmin?'Lock':'Admin';
+  showView(isAdmin?(r==='super'?'orgs':'admin'):'clock');
+}
+lockBtn.addEventListener('click',()=>{
+  if(role!=='staff'){ applyRole('staff'); toast('Locked — staff view'); return; }
+  document.getElementById('pinInput').value='';
+  pinModal.classList.add('show');
+  setTimeout(()=>document.getElementById('pinInput').focus(),50);
+});
+function submitPin(){
+  const v=document.getElementById('pinInput').value.trim();
+  if(v===SUPER_PIN){ pinModal.classList.remove('show'); applyRole('super'); toast('✓ Super admin unlocked'); }
+  else if(v===ORG_PIN){ pinModal.classList.remove('show'); applyRole('org'); toast('✓ Admin unlocked'); }
+  else toast('⚠ Wrong PIN');
+}
+document.getElementById('pinOk').addEventListener('click',submitPin);
+document.getElementById('pinCancel').addEventListener('click',()=>pinModal.classList.remove('show'));
+document.getElementById('pinInput').addEventListener('keydown',e=>{ if(e.key==='Enter') submitPin(); });
+pinModal.addEventListener('click',e=>{ if(e.target===pinModal) pinModal.classList.remove('show'); });
+
+/* ---------- init ---------- */
+(async function init(){
+  await loadTheme();
+  await loadSites();
+  await loadPositions();
+  await loadStaff();
+  await loadOrgs();
+  populateStaffPicker();
+  populatePositionSelect();
+  populateSiteSelect();
+})();
+
+setType('IN');
+</script>
+</body>
+</html>
