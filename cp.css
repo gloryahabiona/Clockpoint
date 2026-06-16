@@ -72,3 +72,6 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 /* org logo in the header — contained so any shape/size sits neatly; hidden until a URL loads */
 .logo-img{height:30px;max-width:130px;width:auto;object-fit:contain;display:block;border-radius:4px;}
 .logo-img[src=""],.logo-img:not([src]){display:none;}
+/* org logo banner under the header — shown only when the image actually loads */
+.logo-banner{display:none;align-items:center;justify-content:center;padding:16px 18px;background:var(--surface-2);border-bottom:1px solid var(--line);}
+.logo-banner img{max-height:60px;max-width:78%;width:auto;object-fit:contain;}

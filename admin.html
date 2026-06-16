@@ -79,6 +79,7 @@
       <button class="tab" data-view="settings">Settings</button>
     </div>
   </header>
+  <div class="logo-banner" id="logoBanner"><img id="logoBannerImg" alt=""></div>
 
   <section class="panel active" id="panel-log">
     <div class="adminbar">
@@ -177,6 +178,13 @@ function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&l
 let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),2600); }
 function shade(hex,p){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=x=>Math.round(p<0?x*(1+p):x+(255-x)*p); const h=x=>f(x).toString(16).padStart(2,'0'); return '#'+h(r)+h(g)+h(b); }
 function applyBrand(hex){ if(!/^#[0-9A-Fa-f]{6}$/.test(hex||'')) return; const s=document.documentElement.style; s.setProperty('--purple',hex); s.setProperty('--purple-deep',shade(hex,-0.25)); s.setProperty('--purple-hover',shade(hex,0.18)); s.setProperty('--header-accent',shade(hex,0.35)); s.setProperty('--lilac',shade(hex,0.4)); }
+function setOrgLogo(url){
+  if(!url) return;
+  const corner=$('orgLogo'), mark=$('logoMark'), banner=$('logoBanner'), bimg=$('logoBannerImg');
+  if(corner){ corner.onload=()=>{ corner.style.display='block'; if(mark) mark.style.display='none'; };
+              corner.onerror=()=>{ corner.style.display='none'; if(mark) mark.style.display='block'; }; corner.src=url; }
+  if(banner&&bimg){ bimg.onload=()=>{ banner.style.display='flex'; }; bimg.onerror=()=>{ banner.style.display='none'; }; bimg.src=url; }
+}
 function initSettings(org){
   const c=org.brand_color||'#9A6DF7'; $('brandColor').value=c; $('brandHex').value=c;
   $('reportEmail').value=org.report_email||''; $('reportEnabled').checked=!!org.report_enabled;
@@ -197,8 +205,7 @@ let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
   const { data: org } = await sb.rpc('my_org');
   const slug = (org && org.slug) || ORG;
   $('staffLink').value = new URL('clock.html?org='+slug, location.href).href;
-  if (org){ applyBrand(org.brand_color); initSettings(org);
-    if(org.logo_url){ const lg=$('orgLogo'); lg.src=org.logo_url; lg.style.display='block'; const lm=$('logoMark'); if(lm) lm.style.display='none'; } }
+  if (org){ applyBrand(org.brand_color); initSettings(org); setOrgLogo(org.logo_url); }
   setToday();
   await Promise.all([loadSites(), loadPositions(), loadStaff()]);
   renderSites(); renderPositions(); renderStaff(); populateStaffSelects();
