@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="cp.css">
 <script src="config.js"></script>
+<script src="theme.js"></script>
 <style>
   .clockface{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:17px 19px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;box-shadow:0 2px 18px rgba(0,0,0,0.12);}
   .clockface .time{font-family:var(--mono);font-size:34px;font-weight:500;line-height:1;letter-spacing:-1px;}
@@ -47,8 +48,10 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <div class="logo-mark"></div>
+      <div class="logo-mark" id="logoMark"></div>
+      <img class="logo-img" id="orgLogo" alt="" style="display:none;">
       <div><h1>ClockPoint</h1><span class="sub" id="orgSub">Staff Clock-In</span></div>
+      <div class="head-actions"><button id="themeBtn" class="btn ghost" style="width:auto;padding:8px 12px;">Dark</button></div>
     </div>
   </header>
 
@@ -134,6 +137,7 @@ setInterval(tick,1000); tick();
   SITES=data.sites||[]; STAFF=data.staff||[];
   $('orgSub').textContent=data.org.name+' · Clock-In';
   applyBrand(data.org.brand_color);
+  if(data.org.logo_url){ const lg=$('orgLogo'); lg.src=data.org.logo_url; lg.style.display='block'; const lm=$('logoMark'); if(lm) lm.style.display='none'; }
   const sel=$('fStaff');
   sel.innerHTML='<option value="">Select your name…</option>'+STAFF.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('gate').style.display='none'; $('form').style.display='block';

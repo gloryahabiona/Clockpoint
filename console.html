@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="cp.css">
 <script src="config.js"></script>
+<script src="theme.js"></script>
 <style>
   .slot-pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.04em;padding:4px 10px;border-radius:20px;}
   .slot-pill.ok{background:var(--in-bg);color:var(--in-text);border:1px solid var(--in-border);}
@@ -26,6 +27,7 @@
       <div class="logo-mark"></div>
       <div><h1>ClockPoint</h1><span class="sub">Super Admin Console</span></div>
       <div class="head-actions">
+        <button id="themeBtn" class="btn ghost" style="width:auto;padding:8px 12px;">Dark</button>
         <button id="logout" class="btn ghost" style="width:auto;padding:8px 12px;">Sign out</button>
       </div>
     </div>
@@ -141,6 +143,17 @@ async function loadOrgs(){
         </div>
         <button class="btn mini" style="margin-top:10px;width:100%;" data-add="${o.id}" data-name="${esc(o.name)}">Create admin login</button>
       </div>
+      <div style="margin-top:8px;">
+        <button class="btn ghost mini" data-brandtoggle="${o.id}">${o.logo_url||o.brand_color?'Edit branding (logo / color)':'+ Branding (logo / color)'}</button>
+      </div>
+      <div class="add-admin" id="br-${o.id}">
+        <div class="field" style="margin-bottom:10px;"><label class="lab">Company logo URL</label><input type="text" id="bl-${o.id}" placeholder="https://…/logo.png" value="${esc(o.logo_url||'')}"></div>
+        <div class="row2" style="align-items:flex-end;">
+          <div><label class="lab">Brand color (#RRGGBB)</label><input type="text" id="bc-${o.id}" placeholder="#7C4DDB" value="${esc(o.brand_color||'')}" style="font-family:var(--mono);"></div>
+          <div style="flex:0 0 auto;"><button class="btn mini" data-brand="${o.id}">Save</button></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:8px;line-height:1.5;">Blank logo = default mark (never looks broken). Blank color = default theme.</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -164,6 +177,18 @@ $('orgList').addEventListener('click', async e => {
   if (t.dataset.copy){ try{ await navigator.clipboard.writeText(t.dataset.copy); }catch(_){ } toast('✓ Staff link copied'); return; }
 
   if (t.dataset.toggle){ $('aa-'+t.dataset.toggle).classList.toggle('show'); return; }
+
+  if (t.dataset.brandtoggle){ $('br-'+t.dataset.brandtoggle).classList.toggle('show'); return; }
+
+  if (t.dataset.brand){ const id=t.dataset.brand;
+    const logo=$('bl-'+id).value.trim(), color=$('bc-'+id).value.trim();
+    if(color && !/^#[0-9A-Fa-f]{6}$/.test(color)){ toast('⚠ Color must be #RRGGBB or blank'); return; }
+    t.disabled=true;
+    const { error } = await sb.rpc('set_org_branding', { p_org:id, p_color:color, p_logo:logo });
+    t.disabled=false;
+    if (error){ toast('⚠ '+error.message); return; }
+    toast('✓ Branding saved'); refresh(); return;
+  }
 
   if (t.dataset.id){ // plan toggle
     t.disabled=true;

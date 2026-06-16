@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="cp.css">
 <script src="config.js"></script>
+<script src="theme.js"></script>
 <style>
   .tabs{display:flex;border-top:1px solid rgba(201,182,240,0.14);}
   .tab{flex:1;padding:13px 6px;background:none;border:none;color:var(--text-soft);font-family:var(--ui);font-size:12.5px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;}
@@ -63,9 +64,11 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <div class="logo-mark"></div>
+      <div class="logo-mark" id="logoMark"></div>
+      <img class="logo-img" id="orgLogo" alt="" style="display:none;">
       <div><h1>ClockPoint</h1><span class="sub" id="orgSub">Organization Admin</span></div>
       <div class="head-actions">
+        <button id="themeBtn" class="btn ghost" style="width:auto;padding:8px 12px;">Dark</button>
         <button id="logout" class="btn ghost" style="width:auto;padding:8px 12px;">Sign out</button>
       </div>
     </div>
@@ -146,15 +149,12 @@
   <section class="panel" id="panel-settings">
     <div class="card" style="margin-bottom:18px;">
       <div class="lab2" style="margin-bottom:8px;">Brand color</div>
-      <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:12px;">Pick your organization's accent color — it themes your admin pages and your staff clock-in screen. <b>It can only be set once.</b></div>
-      <div id="themeOpen">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-          <input type="color" id="brandColor" value="#9A6DF7" style="width:54px;height:44px;padding:4px;">
-          <input type="text" id="brandHex" value="#9A6DF7" style="font-family:var(--mono);flex:1;min-width:120px;">
-          <button class="btn mini" id="saveTheme" style="width:auto;padding:11px 16px;white-space:nowrap;">Set color</button>
-        </div>
+      <div style="font-size:12px;color:var(--text-soft);line-height:1.5;margin-bottom:12px;">Pick your organization's accent color — it themes your admin pages and your staff clock-in screen. Change it as often as you like.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <input type="color" id="brandColor" value="#9A6DF7" style="width:54px;height:44px;padding:4px;">
+        <input type="text" id="brandHex" value="#9A6DF7" style="font-family:var(--mono);flex:1;min-width:120px;">
+        <button class="btn mini" id="saveTheme" style="width:auto;padding:11px 16px;white-space:nowrap;">Save color</button>
       </div>
-      <div id="themeLocked" style="display:none;font-size:13px;color:var(--text-soft);">Brand color is set to <b id="lockedColor"></b> and locked.</div>
     </div>
     <div class="card">
       <div class="lab2" style="margin-bottom:8px;">Weekly attendance email</div>
@@ -178,8 +178,7 @@ let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.
 function shade(hex,p){ const n=parseInt(hex.slice(1),16); const r=(n>>16)&255,g=(n>>8)&255,b=n&255; const f=x=>Math.round(p<0?x*(1+p):x+(255-x)*p); const h=x=>f(x).toString(16).padStart(2,'0'); return '#'+h(r)+h(g)+h(b); }
 function applyBrand(hex){ if(!/^#[0-9A-Fa-f]{6}$/.test(hex||'')) return; const s=document.documentElement.style; s.setProperty('--purple',hex); s.setProperty('--purple-deep',shade(hex,-0.25)); s.setProperty('--purple-hover',shade(hex,0.18)); s.setProperty('--header-accent',shade(hex,0.35)); s.setProperty('--lilac',shade(hex,0.4)); }
 function initSettings(org){
-  if(org.theme_locked && org.brand_color){ $('themeOpen').style.display='none'; $('themeLocked').style.display='block'; $('lockedColor').textContent=org.brand_color; }
-  else { const c=org.brand_color||'#9A6DF7'; $('brandColor').value=c; $('brandHex').value=c; }
+  const c=org.brand_color||'#9A6DF7'; $('brandColor').value=c; $('brandHex').value=c;
   $('reportEmail').value=org.report_email||''; $('reportEnabled').checked=!!org.report_enabled;
 }
 
@@ -198,7 +197,8 @@ let ORG=null, SITES=[], POSITIONS=[], STAFF=[];
   const { data: org } = await sb.rpc('my_org');
   const slug = (org && org.slug) || ORG;
   $('staffLink').value = new URL('clock.html?org='+slug, location.href).href;
-  if (org){ applyBrand(org.brand_color); initSettings(org); }
+  if (org){ applyBrand(org.brand_color); initSettings(org);
+    if(org.logo_url){ const lg=$('orgLogo'); lg.src=org.logo_url; lg.style.display='block'; const lm=$('logoMark'); if(lm) lm.style.display='none'; } }
   setToday();
   await Promise.all([loadSites(), loadPositions(), loadStaff()]);
   renderSites(); renderPositions(); renderStaff(); populateStaffSelects();
@@ -216,10 +216,9 @@ $('brandHex').addEventListener('input', e => { if(/^#[0-9A-Fa-f]{6}$/.test(e.tar
 $('saveTheme').addEventListener('click', async () => {
   const c=$('brandHex').value.trim();
   if(!/^#[0-9A-Fa-f]{6}$/.test(c)){ toast('⚠ Enter a #RRGGBB color'); return; }
-  if(!confirm('Set the brand color to '+c+'? This can only be done once.')) return;
   const { error } = await sb.rpc('set_org_theme', { p_color:c });
   if(error){ toast('⚠ '+error.message); return; }
-  applyBrand(c); $('themeOpen').style.display='none'; $('themeLocked').style.display='block'; $('lockedColor').textContent=c.toUpperCase(); toast('✓ Brand color set');
+  applyBrand(c); toast('✓ Brand color updated');
 });
 $('saveReport').addEventListener('click', async () => {
   const email=$('reportEmail').value.trim(), enabled=$('reportEnabled').checked;
