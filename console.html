@@ -147,12 +147,19 @@ async function loadOrgs(){
         <button class="btn ghost mini" data-brandtoggle="${o.id}">${o.logo_url||o.brand_color?'Edit branding (logo / color)':'+ Branding (logo / color)'}</button>
       </div>
       <div class="add-admin" id="br-${o.id}">
-        <div class="field" style="margin-bottom:10px;"><label class="lab">Company logo URL</label><input type="text" id="bl-${o.id}" placeholder="https://…/logo.png" value="${esc(o.logo_url||'')}"></div>
+        <div class="field" style="margin-bottom:10px;">
+          <label class="lab">Upload company logo (PNG / JPG / SVG)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="file" id="bff-${o.id}" accept="image/*" style="font-size:12px;padding:8px;flex:1;min-width:150px;">
+            <button class="btn mini" data-upload="${o.id}" style="white-space:nowrap;">Upload &amp; save</button>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:10px;"><label class="lab">…or paste a direct image URL</label><input type="text" id="bl-${o.id}" placeholder="https://…/logo.png" value="${esc(o.logo_url||'')}"></div>
         <div class="row2" style="align-items:flex-end;">
           <div><label class="lab">Brand color (#RRGGBB)</label><input type="text" id="bc-${o.id}" placeholder="#7C4DDB" value="${esc(o.brand_color||'')}" style="font-family:var(--mono);"></div>
           <div style="flex:0 0 auto;"><button class="btn mini" data-brand="${o.id}">Save</button></div>
         </div>
-        <div style="font-size:11px;color:var(--text-soft);margin-top:8px;line-height:1.5;">Blank logo = default mark (never looks broken). Blank color = default theme.</div>
+        <div style="font-size:11px;color:var(--text-soft);margin-top:8px;line-height:1.5;">Tip: <b>uploading the file is the reliable option.</b> A Google Drive “view” link is a web page, not an image, so it won't work as a logo. Blank = default mark.</div>
       </div>
     </div>`;
   }).join('');
@@ -179,6 +186,24 @@ $('orgList').addEventListener('click', async e => {
   if (t.dataset.toggle){ $('aa-'+t.dataset.toggle).classList.toggle('show'); return; }
 
   if (t.dataset.brandtoggle){ $('br-'+t.dataset.brandtoggle).classList.toggle('show'); return; }
+
+  if (t.dataset.upload){ const id=t.dataset.upload; const f=$('bff-'+id).files[0];
+    if(!f){ toast('⚠ Choose an image file first'); return; }
+    t.disabled=true; const lbl=t.textContent; t.textContent='Uploading…';
+    try{
+      const ext=((f.name.split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'')||'png');
+      const path=id+'/logo-'+Date.now()+'.'+ext;
+      const up=await sb.storage.from('branding').upload(path, f, { upsert:true, contentType:f.type||'image/png' });
+      if(up.error) throw up.error;
+      const url=sb.storage.from('branding').getPublicUrl(path).data.publicUrl;
+      const color=$('bc-'+id).value.trim();
+      const { error } = await sb.rpc('set_org_branding', { p_org:id, p_color:(/^#[0-9A-Fa-f]{6}$/.test(color)?color:null), p_logo:url });
+      if(error) throw error;
+      toast('✓ Logo uploaded & saved'); refresh();
+    }catch(err){ toast('⚠ '+(err.message||'Upload failed')); }
+    finally{ t.disabled=false; t.textContent=lbl; }
+    return;
+  }
 
   if (t.dataset.brand){ const id=t.dataset.brand;
     const logo=$('bl-'+id).value.trim(), color=$('bc-'+id).value.trim();
