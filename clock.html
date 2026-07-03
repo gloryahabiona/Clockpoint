@@ -128,7 +128,7 @@ function setOrgLogo(url){
 
 const ORG = new URLSearchParams(location.search).get('org');
 let SITES=[], STAFF=[];
-let state={ photo:null, lat:null, lng:null, acc:null, type:'IN', staffId:null, name:null, position:null, siteId:null, siteName:null };
+let state={ photo:null, lat:null, lng:null, acc:null, type:'IN', staffId:null, name:null, position:null, siteId:null, siteName:null, geotag:false };
 
 // ---- live clock ----
 function tick(){ const d=new Date(),p=n=>String(n).padStart(2,'0');
@@ -158,11 +158,11 @@ function getSite(id){ return SITES.find(s=>s.id===id); }
 $('fStaff').addEventListener('change', e => {
   const st=STAFF.find(s=>s.id===e.target.value);
   const card=$('assignCard');
-  if(!st){ state.staffId=null; state.siteId=null; card.style.display='none'; updateZone(); return; }
+  if(!st){ state.staffId=null; state.siteId=null; state.geotag=false; card.style.display='none'; updateZone(); return; }
   const site=getSite(st.siteId);
-  state.staffId=st.id; state.name=st.name; state.position=st.position; state.siteId=st.siteId; state.siteName=site?site.name:null;
+  state.staffId=st.id; state.name=st.name; state.position=st.position; state.siteId=st.siteId; state.siteName=site?site.name:null; state.geotag=!!st.geotag;
   $('acPos').textContent=st.position||'—';
-  $('acSite').textContent=site?`${site.name} · ${site.radius} m radius`:'⚠ no site assigned';
+  $('acSite').textContent = st.geotag ? '📍 Auto-detected at clock-in (geotag)' : (site?`${site.name} · ${site.radius} m radius`:'⚠ no site assigned');
   card.style.display='block'; updateZone();
 });
 
@@ -171,10 +171,17 @@ function distM(a1,o1,a2,o2){ const R=6371000,r=x=>x*Math.PI/180; const dA=r(a2-a
   const x=Math.sin(dA/2)**2+Math.cos(r(a1))*Math.cos(r(a2))*Math.sin(dO/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
 function updateZone(){
   const box=$('zoneStatus'); box.className='zone-box';
-  const site=getSite(state.siteId);
   if(!state.staffId){ box.style.display='none'; return; }
-  if(!site){ box.classList.add('na'); box.textContent='No site assigned to you — ask your admin.'; return; }
   if(state.lat==null||state.lng==null){ box.classList.add('na'); box.textContent='Capture GPS to check the zone.'; return; }
+  if(state.geotag){
+    let best=null,bestD=null;
+    SITES.forEach(s=>{ const d=Math.round(distM(state.lat,state.lng,s.lat,s.lng)); if(d<=s.radius && (bestD==null||d<bestD)){ bestD=d; best=s; } });
+    if(best){ box.classList.add('in'); box.textContent=`✓ WITHIN ${best.name} — ${bestD} m (auto-detected).`; }
+    else { box.classList.add('out'); box.textContent='⚠ Not within any mapped site — this clock-in will be flagged.'; }
+    return;
+  }
+  const site=getSite(state.siteId);
+  if(!site){ box.classList.add('na'); box.textContent='No site assigned to you — ask your admin.'; return; }
   const d=Math.round(distM(state.lat,state.lng,site.lat,site.lng));
   if(d<=site.radius){ box.classList.add('in'); box.textContent=`✓ WITHIN ${site.name} — ${d} m from centre.`; }
   else { box.classList.add('out'); box.textContent=`⚠ OUTSIDE ZONE — ${d} m from ${site.name}. This will be flagged.`; }
@@ -197,7 +204,8 @@ $('fLng').addEventListener('input',e=>{ state.lng=e.target.value?+e.target.value
 $('simOn').addEventListener('click',()=>simulate(true));
 $('simFar').addEventListener('click',()=>simulate(false));
 function simulate(onsite){
-  const s=getSite(state.siteId); if(!s){ toast('⚠ Select your name first'); return; }
+  let s=getSite(state.siteId); if(!s && state.geotag) s=SITES[0];
+  if(!s){ toast(state.staffId?'⚠ No mapped site to simulate against':'⚠ Select your name first'); return; }
   let lat=s.lat,lng=s.lng; if(!onsite){ lat+=0.0045; lng+=0.0045; }
   state.lat=+lat.toFixed(6); state.lng=+lng.toFixed(6); state.acc=onsite?8:11;
   $('fLat').value=state.lat; $('fLng').value=state.lng; $('manualCoords').style.display='flex';
@@ -255,7 +263,7 @@ function resetForm(){
   const gb=$('gpsBtn'); gb.classList.remove('done'); gb.textContent='⊕ Capture GPS';
   const pb=$('photoBtn'); pb.classList.remove('done'); pb.textContent='⊙ Take / Choose photo';
   $('photoPrev').style.display='none';
-  state={ photo:null, lat:null, lng:null, acc:null, type:state.type, staffId:null, name:null, position:null, siteId:null, siteName:null };
+  state={ photo:null, lat:null, lng:null, acc:null, type:state.type, staffId:null, name:null, position:null, siteId:null, siteName:null, geotag:false };
 }
 setType('IN');
 </script>

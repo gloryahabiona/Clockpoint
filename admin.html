@@ -132,6 +132,7 @@
       <div style="flex:0;"><button class="btn" id="posAdd" style="height:100%;padding:0 20px;white-space:nowrap;">Add</button></div>
     </div>
     <div id="posList" class="chip-wrap"></div>
+    <div style="font-size:11px;color:var(--text-soft);margin-top:8px;line-height:1.5;">Tap <b>GEOTAG</b> on a position to let that class of staff auto-detect their site at clock-in — they'll be matched to whichever mapped site they're standing inside, and outside all sites shows red in the log.</div>
 
     <div class="lab2" style="margin:24px 0 10px;">Staff roster</div>
     <div class="card" style="margin-bottom:16px;">
@@ -247,7 +248,7 @@ async function loadSites(){
   if (!error) SITES = (data||[]).map(s=>({id:s.id,name:s.name,lat:+s.center_lat,lng:+s.center_lng,radius:+s.radius_m}));
 }
 async function loadPositions(){
-  const { data, error } = await sb.from('positions').select('id,name').eq('organization_id',ORG).order('name');
+  const { data, error } = await sb.from('positions').select('id,name,geotag').eq('organization_id',ORG).order('name');
   if (!error) POSITIONS = data||[];
 }
 async function loadStaff(){
@@ -298,10 +299,16 @@ $('sUseLoc').addEventListener('click', () => {
 function renderPositions(){
   const box=$('posList');
   if(!POSITIONS.length){ box.innerHTML='<div class="empty">No positions yet</div>'; return; }
-  box.innerHTML=POSITIONS.map(p=>`<span class="chip">${esc(p.name)} <button data-id="${p.id}" title="Remove">✕</button></span>`).join('');
+  box.innerHTML=POSITIONS.map(p=>`<span class="chip">${esc(p.name)}
+    <button data-geotag="${p.id}" title="Toggle geotag for this position" style="width:auto;padding:0 8px;border-radius:11px;font-size:9.5px;font-weight:700;letter-spacing:.03em;${p.geotag?'background:var(--army);color:#fff;':'background:var(--surface-2);color:var(--text-soft);'}">GEOTAG ${p.geotag?'✓':'✕'}</button>
+    <button data-id="${p.id}" title="Remove">✕</button></span>`).join('');
 }
 $('posList').addEventListener('click', async e => {
   const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.geotag){ const gp=POSITIONS.find(x=>x.id===b.dataset.geotag); if(!gp) return;
+    const { error } = await sb.from('positions').update({ geotag: !gp.geotag }).eq('id', gp.id);
+    if(error){ toast('⚠ '+error.message); return; }
+    await loadPositions(); renderPositions(); toast('Geotag '+(!gp.geotag?'ON':'OFF')+' · '+gp.name); return; }
   const p=POSITIONS.find(x=>x.id===b.dataset.id); if(!p) return;
   if(!confirm('Remove position "'+p.name+'"? Existing staff keep their saved position.')) return;
   const { error } = await sb.from('positions').delete().eq('id', p.id);
