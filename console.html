@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="cp.css">
 <script src="config.js"></script>
 <script src="theme.js"></script>
+<script src="pw.js"></script>
 <style>
   .slot-pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:0.04em;padding:4px 10px;border-radius:20px;}
   .slot-pill.ok{background:var(--in-bg);color:var(--in-text);border:1px solid var(--in-border);}
@@ -83,6 +84,17 @@ function show(kind,text){ const m=$('msg'); m.className='msg show '+kind; m.text
 function clearMsg(){ $('msg').className='msg'; }
 let toastT; function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>e.classList.remove('show'),2600); }
 function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function callAdminFn(payload){
+  const { data:{ session } } = await sb.auth.getSession();
+  const res = await fetch(`${CP_CONFIG.SUPABASE_URL}/functions/v1/create-org-admin`, {
+    method:'POST',
+    headers:{ 'Authorization':`Bearer ${session.access_token}`, 'apikey':CP_CONFIG.SUPABASE_ANON_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const out = await res.json().catch(()=>({error:'Bad response'}));
+  if(!res.ok || out.error) throw new Error(out.error || ('Failed '+res.status));
+  return out;
+}
 
 // --- guard: must be a signed-in super admin ---
 (async () => {
@@ -123,14 +135,24 @@ async function loadOrgs(){
   const orgs = data || [];
   if (!orgs.length){ box.innerHTML='<div class="empty">No organizations yet — create the first one above.</div>'; return; }
   box.innerHTML = orgs.map(o => {
-    const admins = (o.admins||[]).map(a=>`${esc(a.email)} <span style="opacity:.6">(${esc(a.role)})</span>`).join('<br>') || '<span style="opacity:.6">no admins yet</span>';
+    const admins = (o.admins||[]).map(a=>`
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;">
+        <span style="flex:1;min-width:130px;word-break:break-all;font-family:var(--mono);font-size:11px;">${esc(a.email)}</span>
+        <select data-role-user="${a.id}" style="width:auto;padding:5px 8px;font-size:12px;">
+          <option value="owner"${a.role==='owner'?' selected':''}>Owner</option>
+          <option value="admin"${a.role==='admin'?' selected':''}>Admin</option>
+          <option value="viewer"${a.role==='viewer'?' selected':''}>Viewer</option>
+        </select>
+        <button class="btn ghost mini" style="width:auto;padding:5px 9px;" data-resetpw="${a.id}" data-email="${esc(a.email)}">Reset pw</button>
+        <button class="btn ghost mini" style="width:auto;padding:5px 9px;border-color:var(--danger);color:var(--danger);" data-deladmin="${a.id}" data-email="${esc(a.email)}">Remove</button>
+      </div>`).join('') || '<div style="opacity:.6;margin-top:6px;">no admins yet</div>';
     const full = (o.admin_count||0) >= 5;
     return `<div class="org-card">
       <div class="org-top">
         <div class="org-nm">${esc(o.name)} <span class="plan-badge ${o.plan}">${o.plan}</span></div>
         <button class="btn ghost mini" data-plan="${o.plan==='free'?'paid':'free'}" data-id="${o.id}">→ ${o.plan==='free'?'Paid':'Free'}</button>
       </div>
-      <div class="admins-line"><b style="color:var(--lilac)">Admins ${o.admin_count||0}/5</b><br>${admins}</div>
+      <div class="admins-line"><b style="color:var(--lilac)">Admins ${o.admin_count||0}/5</b>${admins}</div>
       <div class="admins-line" style="margin-top:8px;"><b style="color:var(--lilac)">Staff link</b><br><span style="word-break:break-all;">${esc(new URL('clock.html?org='+(o.slug||o.id), location.href).href)}</span> <button class="btn ghost mini" style="width:auto;padding:3px 9px;margin-left:2px;" data-copy="${esc(new URL('clock.html?org='+(o.slug||o.id), location.href).href)}">Copy</button></div>
       <div style="margin-top:10px;">
         <button class="btn ghost mini" data-toggle="${o.id}" ${full?'disabled':''}>${full?'Admin limit reached':'+ Add admin'}</button>
@@ -138,7 +160,7 @@ async function loadOrgs(){
       <div class="add-admin" id="aa-${o.id}">
         <div class="field" style="margin-bottom:10px;"><input type="email" id="ae-${o.id}" placeholder="admin email" autocomplete="off"></div>
         <div class="row2" style="align-items:flex-end;">
-          <div><input type="text" id="ap-${o.id}" placeholder="initial password (8+ chars)" autocomplete="off"></div>
+          <div><input type="password" id="ap-${o.id}" placeholder="initial password (8+ chars)" autocomplete="off"></div>
           <div style="flex:0 0 auto;"><select id="ar-${o.id}" style="width:auto;"><option value="admin">Admin</option><option value="owner">Owner</option><option value="viewer">Viewer</option></select></div>
         </div>
         <button class="btn mini" style="margin-top:10px;width:100%;" data-add="${o.id}" data-name="${esc(o.name)}">Create admin login</button>
@@ -222,6 +244,19 @@ $('orgList').addEventListener('click', async e => {
     toast('Plan updated'); refresh(); return;
   }
 
+  if (t.dataset.resetpw){ const id=t.dataset.resetpw, em=t.dataset.email||'';
+    const pw=prompt('New password for '+em+' (min 8 characters):'); if(pw===null) return;
+    if(pw.length<8){ toast('⚠ Password must be 8+ characters'); return; }
+    t.disabled=true; try{ await callAdminFn({action:'reset_password', userId:id, password:pw}); toast('✓ Password reset for '+em); }
+    catch(e){ toast('⚠ '+e.message); } finally{ t.disabled=false; } return;
+  }
+
+  if (t.dataset.deladmin){ const id=t.dataset.deladmin, em=t.dataset.email||'';
+    if(!confirm('Remove admin '+em+'? Their login will be permanently deleted.')) return;
+    t.disabled=true; try{ await callAdminFn({action:'delete', userId:id}); toast('✓ Admin removed'); refresh(); }
+    catch(e){ toast('⚠ '+e.message); t.disabled=false; } return;
+  }
+
   if (t.dataset.add){ // create admin for this org
     const id=t.dataset.add;
     const email=$('ae-'+id).value.trim(), password=$('ap-'+id).value, role=$('ar-'+id).value;
@@ -242,6 +277,13 @@ $('orgList').addEventListener('click', async e => {
     } catch(err){ toast('⚠ Network error'); }
     finally { t.disabled=false; t.textContent='Create admin login'; }
   }
+});
+
+// change an admin's role from the dropdown
+$('orgList').addEventListener('change', async e => {
+  const s=e.target.closest('select[data-role-user]'); if(!s) return;
+  try{ await callAdminFn({action:'set_role', userId:s.dataset.roleUser, role:s.value}); toast('✓ Role updated'); }
+  catch(err){ toast('⚠ '+err.message); refresh(); }
 });
 </script>
 </body>
