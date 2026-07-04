@@ -70,7 +70,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 /* ClockPoint platform logo in the footer (replaces the text liner). Falls back
    to the alt text if clockpoint-logo.png isn't present yet. */
 .footer-brand{text-align:center;padding:22px 0 12px;}
-.footer-logo{display:inline-block;max-width:190px;width:60%;height:auto;opacity:.92;color:var(--text-soft);font-size:10px;}
+.footer-logo{display:inline-block;max-width:95px;width:32%;height:auto;opacity:.92;color:var(--text-soft);font-size:10px;}
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(120px);background:var(--header-bg);color:var(--text);padding:14px 22px;border:1px solid var(--purple);border-radius:var(--r);font-size:13px;font-weight:500;z-index:50;transition:.3s;max-width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.4);}
 .toast.show{transform:translateX(-50%) translateY(0);}
 /* org logo in the header — contained so any shape/size sits neatly; hidden until a URL loads */
